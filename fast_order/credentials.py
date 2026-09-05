@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import uuid
 from dataclasses import asdict, dataclass
@@ -23,23 +24,28 @@ def harden_windows_acl(path: Path) -> bool:
         return True
     try:
         identity = subprocess.run(
-            ["whoami"], capture_output=True, text=True, timeout=5, check=False,
+            ["whoami", "/user", "/fo", "csv", "/nh"],
+            capture_output=True,
+            text=False,
+            timeout=5,
+            check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        user = identity.stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return False
-    if identity.returncode != 0 or not user:
+    sid_match = re.search(rb"S-\d(?:-\d+)+", identity.stdout or b"")
+    if identity.returncode != 0 or sid_match is None:
         return False
+    user_sid = sid_match.group(0).decode("ascii")
     inheritance = "(OI)(CI)F" if target.is_dir() else "F"
     try:
         result = subprocess.run(
             [
                 "icacls", str(target), "/inheritance:r", "/grant:r",
-                f"{user}:{inheritance}", "*S-1-5-18:F", "*S-1-5-32-544:F",
+                f"*{user_sid}:{inheritance}", "*S-1-5-18:F", "*S-1-5-32-544:F",
             ],
             capture_output=True,
-            text=True,
+            text=False,
             timeout=10,
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
