@@ -2,6 +2,7 @@ param(
     [switch]$Clean,
     [switch]$SandboxQa,
     [switch]$InternalUnsignedCandidate,
+    [switch]$AllowToolDownloads,
     [string]$PythonPath = $env:FAST_ORDER_PYTHON,
     [string]$CompanyName
 )
@@ -18,7 +19,7 @@ $WheelManifestPath = Join-Path $PackagingRoot "wheelhouse-manifest.json"
 $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
 $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
 $SelectedPolicy = if ($SandboxQa) { Join-Path $PackagingRoot "sandbox-qa-policy.json" } else { Join-Path $ProjectRoot "config\production.json" }
-$env:NUITKA_CACHE_DIR = Join-Path $OutputRoot "nuitka-cache"
+$env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 
 function Fail([string]$Message) { throw "FastOrder build preflight failed: $Message" }
 
@@ -34,7 +35,7 @@ if ($InternalUnsignedCandidate -and -not $SandboxQa) {
     $DistRoot = Join-Path $OutputRoot "FastOrder.dist"
     $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
     $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
-    $env:NUITKA_CACHE_DIR = Join-Path $OutputRoot "nuitka-cache"
+    $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 }
 
 $GitState = @(& git -C $ProjectRoot status --porcelain --untracked-files=all)
@@ -187,6 +188,9 @@ $NuitkaArgs = @(
     "--report=$ReportPath",
     (Join-Path $ProjectRoot "FastOrder.py")
 )
+if ($AllowToolDownloads) {
+    $NuitkaArgs = @("--assume-yes-for-downloads") + $NuitkaArgs
+}
 
 Push-Location $ProjectRoot
 try {
