@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+runtime/
+# Non-sensitive account metadata lives here at runtime; keep it local because it
+# identifies the selected environment and masked account.
+account_profile.json
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.token
+*.secrets
+webull_tokens/
