@@ -18,6 +18,9 @@ $Wheelhouse = Join-Path $PackagingRoot "wheelhouse"
 $WheelManifestPath = Join-Path $PackagingRoot "wheelhouse-manifest.json"
 $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
 $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
+$NuitkaWorkRoot = Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"
+$NuitkaDistRoot = Join-Path $NuitkaWorkRoot "FastOrder.dist"
+$NuitkaReportPath = Join-Path $NuitkaWorkRoot "compilation-report.xml"
 $SelectedPolicy = if ($SandboxQa) { Join-Path $PackagingRoot "sandbox-qa-policy.json" } else { Join-Path $ProjectRoot "config\production.json" }
 $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 
@@ -50,6 +53,9 @@ if ($InternalUnsignedCandidate -and -not $SandboxQa) {
     $DistRoot = Join-Path $OutputRoot "FastOrder.dist"
     $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
     $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
+    $NuitkaWorkRoot = Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"
+    $NuitkaDistRoot = Join-Path $NuitkaWorkRoot "FastOrder.dist"
+    $NuitkaReportPath = Join-Path $NuitkaWorkRoot "compilation-report.xml"
     $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 }
 Test-NuitkaToolCache -RequirePresent:(-not $AllowToolDownloads)
@@ -150,10 +156,6 @@ $env:CXX = $ResolvedCl
 # Nuitka emits UTF-8 C headers for the Chinese PE product metadata. Force the
 # MSVC source/execution character sets so localized names compile losslessly.
 $env:CL = (([string]$env:CL + " /utf-8").Trim())
-# Scons also writes linker response/resource data containing Unicode package
-# metadata. Do not let the host's legacy ANSI code page corrupt that file.
-$env:PYTHONUTF8 = "1"
-
 $PytestBaseTemp = Join-Path $ProjectRoot "build\pytest-$OutputName"
 & $PythonPath -m pytest -q --basetemp $PytestBaseTemp
 if ($LASTEXITCODE -ne 0) { Fail "Source test suite failed." }
@@ -174,12 +176,17 @@ if ($Clean) {
     $expectedOutput = [System.IO.Path]::GetFullPath((Join-Path $ProjectRoot "build\$OutputName"))
     if ($resolvedOutput -ne $expectedOutput) { Fail "Refusing to clean an unexpected output directory." }
     if (Test-Path -LiteralPath $resolvedOutput) { Remove-Item -LiteralPath $resolvedOutput -Recurse -Force }
+    $resolvedWork = [System.IO.Path]::GetFullPath($NuitkaWorkRoot)
+    $expectedWork = [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"))
+    if ($resolvedWork -ne $expectedWork) { Fail "Refusing to clean an unexpected Nuitka work directory." }
+    if (Test-Path -LiteralPath $resolvedWork) { Remove-Item -LiteralPath $resolvedWork -Recurse -Force }
 }
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $NuitkaWorkRoot | Out-Null
 
 $NuitkaArgs = @(
     "--mode=standalone",
-    "--output-dir=$OutputRoot",
+    "--output-dir=$NuitkaWorkRoot",
     "--output-filename=FastOrder.exe",
     "--windows-console-mode=force",
     "--python-flag=safe_path",
@@ -217,13 +224,17 @@ $NuitkaArgs = @(
     "--include-package-data=certifi",
     "--include-package-data=tzdata",
     "--include-distribution-metadata=keyring",
-    "--report=$ReportPath",
+    "--report=$NuitkaReportPath",
     (Join-Path $ProjectRoot "FastOrder.py")
 )
 if ($AllowToolDownloads) {
     $NuitkaArgs = @("--assume-yes-for-downloads") + $NuitkaArgs
 }
 
+# Scons writes linker response/resource data containing Unicode package
+# metadata. Scope UTF-8 mode to the compiler phase so native ACL test tools
+# continue to decode with the host Windows code page.
+$env:PYTHONUTF8 = "1"
 Push-Location $ProjectRoot
 try {
     & $BuildPython -m nuitka @NuitkaArgs
@@ -233,7 +244,10 @@ finally { Pop-Location }
 
 Test-NuitkaToolCache -RequirePresent
 
-if (-not (Test-Path -LiteralPath $DistRoot)) { Fail "FastOrder.dist was not generated." }
+if (-not (Test-Path -LiteralPath $NuitkaDistRoot)) { Fail "FastOrder.dist was not generated." }
+if (Test-Path -LiteralPath $DistRoot) { Remove-Item -LiteralPath $DistRoot -Recurse -Force }
+Copy-Item -LiteralPath $NuitkaDistRoot -Destination $DistRoot -Recurse
+Copy-Item -LiteralPath $NuitkaReportPath -Destination $ReportPath -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $DistRoot "config") | Out-Null
 Copy-Item -LiteralPath $SelectedPolicy -Destination (Join-Path $DistRoot "config\production.json") -Force
 & $BuildPython (Join-Path $PackagingRoot "collect_licenses.py") --output (Join-Path $DistRoot "LICENSES")
