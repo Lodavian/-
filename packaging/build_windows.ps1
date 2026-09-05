@@ -141,6 +141,12 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     Fail "MSVC v143 x64 compiler was not found."
 }
+$ResolvedCl = (Get-Command cl.exe -ErrorAction Stop).Source
+# Nuitka/Scons intentionally restores the pre-VsDevCmd PATH. Passing the
+# already-validated compiler explicitly keeps the selected v143 toolchain
+# deterministic while INCLUDE/LIB continue to come from VsDevCmd.
+$env:CC = $ResolvedCl
+$env:CXX = $ResolvedCl
 
 $PytestBaseTemp = Join-Path $ProjectRoot "build\pytest-$OutputName"
 & $PythonPath -m pytest -q --basetemp $PytestBaseTemp
