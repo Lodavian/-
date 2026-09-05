@@ -203,6 +203,10 @@ def stop_process(process: subprocess.Popen[bytes]) -> None:
 def launch(executable: Path, local_app_data: Path) -> subprocess.Popen[bytes]:
     environment = os.environ.copy()
     environment["LOCALAPPDATA"] = str(local_app_data)
+    # Production must ignore development credential environment variables.
+    environment["FAST_ORDER_WEBULL_APP_KEY"] = "must-not-load-from-environment"
+    environment["FAST_ORDER_WEBULL_APP_SECRET"] = "must-not-load-from-environment"
+    environment["FAST_ORDER_WEBULL_ACCOUNT_ID"] = "must-not-load-from-environment"
     flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     return subprocess.Popen(
         [str(executable), "--no-browser"],
@@ -241,9 +245,13 @@ def main() -> int:
                 raise AssertionError("UI session token was not rendered")
             token = match.group(1).decode("ascii")
             initial = websocket_handshake(token)
+            connection_state = initial.get("connection")
+            if not isinstance(connection_state, dict):
+                raise AssertionError("standalone EXE returned no connection state")
+            if connection_state.get("credentialState") == "ENV_FALLBACK":
+                raise AssertionError("production EXE loaded credentials from environment variables")
             if keyring_module is not None:
-                connection_state = initial.get("connection")
-                if not isinstance(connection_state, dict) or connection_state.get("credentialState") != "CREDENTIALS_SAVED":
+                if connection_state.get("credentialState") != "CREDENTIALS_SAVED":
                     raise AssertionError("standalone EXE did not read the test Windows credential")
             rejected_websocket_handshake("invalid-token", origin="http://127.0.0.1:8765")
             rejected_websocket_handshake(token, origin="https://attacker.invalid")
