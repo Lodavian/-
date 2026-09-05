@@ -16,6 +16,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from contextlib import closing
 from pathlib import Path
 
 
@@ -119,7 +120,7 @@ def main() -> int:
         try:
             wait_until_live(process, time.monotonic() + 20)
             _, html = fetch("/")
-            fetch("/readyz", expected={200, 503})
+            fetch("/readyz", expected={503})
             match = re.search(rb'name="fast-order-session-token" content="([^"]+)"', html)
             if not match:
                 raise AssertionError("UI session token was not rendered")
@@ -146,7 +147,7 @@ def main() -> int:
         log_file = data_root / "logs" / "fast_order.log"
         if not database.is_file() or not log_file.is_file():
             raise AssertionError("LocalAppData database/log was not created")
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             if str(connection.execute("PRAGMA journal_mode").fetchone()[0]).lower() != "wal":
                 raise AssertionError("SQLite ledger is not using WAL")
             if int(connection.execute("PRAGMA synchronous").fetchone()[0]) != 2:
@@ -154,13 +155,14 @@ def main() -> int:
             connection.execute("CREATE TABLE IF NOT EXISTS packaged_smoke (value TEXT NOT NULL)")
             connection.execute("DELETE FROM packaged_smoke")
             connection.execute("INSERT INTO packaged_smoke(value) VALUES ('preserved')")
+            connection.commit()
 
         restarted = launch(executable, local_app_data)
         try:
             wait_until_live(restarted, time.monotonic() + 20)
         finally:
             stop_process(restarted)
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             value = connection.execute("SELECT value FROM packaged_smoke").fetchone()
         if value != ("preserved",):
             raise AssertionError("SQLite state did not survive restart")
