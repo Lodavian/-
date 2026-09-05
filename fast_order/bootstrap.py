@@ -25,6 +25,11 @@ PRODUCT_VERSION = "1.0.0"
 
 def resource_root() -> Path:
     compiled = globals().get("__compiled__")
+    if compiled is not None and getattr(compiled, "standalone", False):
+        # In Nuitka standalone mode sys.executable is the final EXE inside the
+        # distribution. ``__compiled__.containing_dir`` is one level higher in
+        # Nuitka 4.2 and therefore cannot locate adjacent static/config data.
+        return Path(sys.executable).resolve().parent
     containing_dir = getattr(compiled, "containing_dir", None)
     if containing_dir:
         return Path(containing_dir).resolve()

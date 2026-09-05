@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import logging
 import socket
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from fast_order import bootstrap
+
+
+def test_resource_root_uses_executable_directory_in_nuitka_standalone(monkeypatch, tmp_path: Path):
+    executable = tmp_path / "FastOrder.dist" / "FastOrder.exe"
+    monkeypatch.setattr(bootstrap, "__compiled__", SimpleNamespace(standalone=True), raising=False)
+    monkeypatch.setattr(sys, "executable", str(executable))
+    assert bootstrap.resource_root() == executable.parent.resolve()
 
 
 def test_prepare_paths_rejects_acl_failure(monkeypatch, tmp_path: Path):
