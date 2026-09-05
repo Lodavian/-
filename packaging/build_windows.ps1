@@ -237,8 +237,25 @@ if ($AllowToolDownloads) {
 $env:PYTHONUTF8 = "1"
 Push-Location $ProjectRoot
 try {
-    & $BuildPython -m nuitka @NuitkaArgs
-    if ($LASTEXITCODE -ne 0) { Fail "Nuitka standalone compilation failed." }
+    $NuitkaSucceeded = $false
+    for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+        if ($Attempt -gt 1) {
+            Write-Warning "Nuitka attempt $($Attempt - 1) was blocked by a transient tool/file lock; retrying ($Attempt/3)."
+            Start-Sleep -Seconds 5
+            $resolvedDist = [System.IO.Path]::GetFullPath($NuitkaDistRoot)
+            $expectedDist = [System.IO.Path]::GetFullPath((Join-Path $NuitkaWorkRoot "FastOrder.dist"))
+            if ($resolvedDist -ne $expectedDist) { Fail "Refusing to clean an unexpected Nuitka dist directory." }
+            if (Test-Path -LiteralPath $resolvedDist) {
+                Remove-Item -LiteralPath $resolvedDist -Recurse -Force
+            }
+        }
+        & $BuildPython -m nuitka @NuitkaArgs
+        if ($LASTEXITCODE -eq 0) {
+            $NuitkaSucceeded = $true
+            break
+        }
+    }
+    if (-not $NuitkaSucceeded) { Fail "Nuitka standalone compilation failed after 3 attempts." }
 }
 finally { Pop-Location }
 
