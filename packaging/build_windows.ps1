@@ -150,6 +150,9 @@ $env:CXX = $ResolvedCl
 # Nuitka emits UTF-8 C headers for the Chinese PE product metadata. Force the
 # MSVC source/execution character sets so localized names compile losslessly.
 $env:CL = (([string]$env:CL + " /utf-8").Trim())
+# Scons also writes linker response/resource data containing Unicode package
+# metadata. Do not let the host's legacy ANSI code page corrupt that file.
+$env:PYTHONUTF8 = "1"
 
 $PytestBaseTemp = Join-Path $ProjectRoot "build\pytest-$OutputName"
 & $PythonPath -m pytest -q --basetemp $PytestBaseTemp
