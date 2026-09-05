@@ -184,7 +184,6 @@ $NuitkaArgs = @(
     "--include-package-data=certifi",
     "--include-package-data=tzdata",
     "--include-distribution-metadata=keyring",
-    "--include-distribution-metadata=webull-openapi-python-sdk",
     "--report=$ReportPath",
     (Join-Path $ProjectRoot "FastOrder.py")
 )

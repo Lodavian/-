@@ -19,7 +19,7 @@
     "certifi",
     "tzdata"
   ],
-  "distributionMetadata": ["keyring", "webull-openapi-python-sdk"],
+  "distributionMetadata": ["keyring"],
   "nofollowImports": ["tests", "pytest", "packaging"],
   "windows": {
     "msvcVersion": "14.3",
