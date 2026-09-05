@@ -110,6 +110,10 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     if ($LASTEXITCODE -ne 0) { Fail "Unable to initialize the VS 2022 x64 toolchain." }
     foreach ($line in $environmentLines) {
         $name, $value = $line -split "=", 2
+        # cmd.exe can emit both PATH (from VsDevCmd) and Path (the inherited
+        # process value). Windows treats them case-insensitively, so applying
+        # the latter would silently remove cl.exe from this PowerShell process.
+        if ($name -ceq "Path") { continue }
         if ($name -and $null -ne $value) { Set-Item -Path "Env:$name" -Value $value }
     }
 }
