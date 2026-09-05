@@ -121,7 +121,8 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     Fail "MSVC v143 x64 compiler was not found."
 }
 
-& $PythonPath -m pytest -q --basetemp (Join-Path $OutputRoot "pytest-basetemp")
+$PytestBaseTemp = Join-Path $ProjectRoot "build\pytest-$OutputName"
+& $PythonPath -m pytest -q --basetemp $PytestBaseTemp
 if ($LASTEXITCODE -ne 0) { Fail "Source test suite failed." }
 & $PythonPath -m compileall -q (Join-Path $ProjectRoot "app.py") (Join-Path $ProjectRoot "FastOrder.py") (Join-Path $ProjectRoot "fast_order")
 if ($LASTEXITCODE -ne 0) { Fail "compileall failed." }
