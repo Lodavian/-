@@ -1,10 +1,28 @@
 {
-  "sourceTests": "NOT_RUN",
-  "packagedSmoke": "NOT_RUN",
-  "sandboxClosure": "NOT_RUN",
-  "installerQa": "NOT_RUN",
-  "signatureVerification": "NOT_RUN",
-  "windowsSdk": "UNRECORDED",
-  "approver": "UNASSIGNED",
-  "notes": "Replace this candidate template with reviewed, non-sensitive evidence. Never mark PASS without the corresponding logs and broker-side verification."
+  "schemaVersion": 2,
+  "product": "FastOrder",
+  "releaseClass": "internal",
+  "candidate": {
+    "commit": "", "tree": "", "environment": "SANDBOX",
+    "executable": {"path": "", "sha256": ""},
+    "installer": {"path": "FastOrder-Setup-1.0.0-rc1.exe", "sha256": ""},
+    "policy": {"path": "config/production.json", "sha256": ""},
+    "uiHashes": {
+      "source": {"static/index.html": "BBC49478141348365F513D84F9B8AAD96C1A9CCE2DD796B92D37A46941F8349D", "static/styles.css": "528E6E634C199BBAB1A45379247C9489308512E5AD04B8B68B5922CD3B34EFE0", "static/app.js": "C6DFA98A139761EDDCDBD03117EBE155475A28FFB8447A13BD3CA7218513963B"},
+      "standalone": {"static/index.html": "", "static/styles.css": "", "static/app.js": ""},
+      "installed": {"static/index.html": "", "static/styles.css": "", "static/app.js": ""}
+    }
+  },
+  "qaEnvironment": {"windowsVersion": "", "userType": "standard-interactive", "python": "", "nuitka": "4.2", "msvc": "14.3", "windowsSdk": "", "innoSetup": ""},
+  "gates": {
+    "A": {"status": "NOT_RUN", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "", "notes": "Interactive Windows Credential QA."},
+    "B": {"status": "NOT_RUN", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "", "notes": "Real Broker Sandbox QA; never LIVE orders."},
+    "C": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "Commercial Inno Setup license and installer QA are not yet available.", "notes": "Unsigned internal RC installer lifecycle QA."},
+    "D": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "No legal Publisher, production Authenticode certificate, or trusted timestamp evidence.", "notes": "Formal signing only; self-signed/test certificates are forbidden."}
+  },
+  "credentialScan": {"status": "NOT_RUN", "findings": [], "scannedRoots": [], "completedAtUtc": "", "evidenceSha256": ""},
+  "signature": {"status": "UNRECORDED", "timestampStatus": "UNRECORDED", "timestampUrl": "", "signerSubject": "", "signerThumbprint": ""},
+  "redactionVerified": false,
+  "approver": "",
+  "notes": "UNSIGNED_INTERNAL_RC candidate template. Formal manifest generation remains fail-closed until Gate A-D all PASS."
 }

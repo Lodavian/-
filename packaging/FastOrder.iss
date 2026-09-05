@@ -1,15 +1,35 @@
 #define MyAppName "FastOrder"
 #define MyAppDisplayName "极速下单"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
 #define MyAppExeName "FastOrder.exe"
 
-; CI must inject the legal publisher, e.g. /DMyAppPublisher="Example Ltd.".
-#ifndef MyAppPublisher
-  #error MyAppPublisher must be supplied by the release build
-#endif
-
-#ifndef SignToolName
-  #error SignToolName must be supplied by the signed release build
+; The installer has two deliberately separate release lanes.  The build
+; script supplies exactly one of these defines; keeping the decision here
+; means the generated RC can never accidentally inherit release signing
+; settings.
+#ifdef InternalUnsignedRc
+  #ifdef FormalSigned
+    #error InternalUnsignedRc and FormalSigned are mutually exclusive
+  #endif
+  #define MyAppPublisher "FastOrder Internal Candidate"
+  #ifndef MyOutputBaseFilename
+    #define MyOutputBaseFilename "FastOrder-Setup-1.0.0-rc1"
+  #endif
+#else
+  #ifndef FormalSigned
+    #error Exactly one installer release mode must be selected
+  #endif
+  #ifndef MyAppPublisher
+    #error MyAppPublisher must be supplied by the formal release build
+  #endif
+  #ifndef SignToolName
+    #error SignToolName must be supplied by the formal signed release build
+  #endif
+  #ifndef MyOutputBaseFilename
+    #define MyOutputBaseFilename "FastOrder-Setup-1.0.0"
+  #endif
 #endif
 
 ; Override with /DStagingDir=... when compiling from CI. The staging tree must
@@ -26,7 +46,9 @@ AppVerName={#MyAppDisplayName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\FastOrder
 DefaultGroupName={#MyAppDisplayName}
-OutputBaseFilename=FastOrder-Setup-1.0.0
+; Formal value is OutputBaseFilename=FastOrder-Setup-1.0.0; the internal RC
+; value appends -rc1 so the two artifacts cannot be confused.
+OutputBaseFilename={#MyOutputBaseFilename}
 MinVersion=10.0.19045
 SetupArchitecture=x64
 ArchitecturesAllowed=x64compatible
@@ -42,9 +64,14 @@ SolidCompression=yes
 ; The application must create this named mutex before serving requests. This
 ; makes upgrades fail safely while FastOrder is still running.
 AppMutex=Local\FastOrder.V1
-; CI injects this named command with ISCC /S; it signs setup and uninstaller.
+; FormalSigned injects this named command with ISCC /S; it signs setup and
+; uninstaller.  InternalUnsignedRc intentionally has no SignTool directive.
+#ifdef FormalSigned
 SignTool={#SignToolName}
 SignedUninstaller=yes
+#else
+SignedUninstaller=no
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -69,9 +96,16 @@ Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppDisplayName}"; Wo
 function ParseSemanticVersion(const Value: String; var Packed: Int64): Boolean;
 var
   Parts: TArrayOfString;
+  BaseValue: String;
+  SuffixAt: Integer;
   Major, Minor, Patch: Integer;
 begin
-  Parts := SplitString(Value, '.');
+  { Accept prerelease upgrade inputs such as 0.9.9-qa while comparing the
+    numeric semantic version components. }
+  BaseValue := Value;
+  SuffixAt := Pos('-', BaseValue);
+  if SuffixAt > 0 then Delete(BaseValue, SuffixAt, Length(BaseValue));
+  Parts := SplitString(BaseValue, '.');
   Result := GetArrayLength(Parts) >= 3;
   if not Result then Exit;
   Major := StrToIntDef(Parts[0], -1);

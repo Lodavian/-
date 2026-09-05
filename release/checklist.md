@@ -1,16 +1,37 @@
-# FastOrder 1.0.0 Windows release gate
+# FastOrder 1.0.0 Windows Release Qualification
 
-- [ ] Build on x64 Windows 10 22H2 or newer with pinned Python/dependencies.
-- [ ] Nuitka standalone staging tree contains `FastOrder.exe`, static assets, and `FastOrder.ico`; no `.py`, `.env`, `runtime`, `logs`, tokens, databases, or secrets.
-- [ ] Compile `packaging/FastOrder.iss` with Inno Setup 7.1 x64; verify stable AppId and `Program Files/FastOrder` target.
-- [ ] Verify desktop and Start Menu shortcuts; run as a non-admin user after installation.
-- [ ] Verify the application mutex blocks overwrite while FastOrder is running.
-- [ ] Verify formal production policy is LIVE fail-closed; Sandbox QA uses its separate build directory and policy.
-- [ ] Verify real Sandbox connection, quote, non-marketable LIMIT order, order event, and cancel evidence.
-- [ ] Verify reinstall and upgrade preserve `%LOCALAPPDATA%\FastOrder`, order ledger, tokens, profile, and Credential Manager entries.
-- [ ] Verify uninstall removes only binaries/shortcuts; it must never delete `%LOCALAPPDATA%\FastOrder` or Credential Manager entries.
-- [ ] Record proof of a valid Inno Setup commercial license before commercial release.
-- [ ] Verify EXE and installer ProductVersion/FileVersion/OriginalFilename/icon metadata.
-- [ ] Sign EXE and installer with Authenticode SHA-256 plus RFC3161 timestamp; verify signer and chain on a clean VM.
-- [ ] Run `Write-SHA256.ps1` and `New-BuildManifest.ps1`; independently verify hashes and source commit.
-- [ ] Second-person review approves the manifest, Sandbox evidence, signing output, and release artifacts.
+本页是发布总门禁；人工步骤和证据要求分别见四份 Gate checklist。所有 Gate 都禁止提交 LIVE 订单。允许的订单验证仅为 Gate B 中四个彼此隔离、任一时刻最多一笔活动订单的 Sandbox `LIMIT`/`DAY` 场景，并且必须逐笔撤单/对账闭环。
+
+## Gate checklist 索引
+
+| Gate | 人工清单 | 必须满足的证据门禁 | 状态 |
+|---|---|---|---|
+| A — Credential QA | [gate-a-credential-qa.md](gate-a-credential-qa.md) | `A-CRED-001` 至 `A-CRED-011` 全部 `PASS` | `NOT_RUN` |
+| B — Sandbox QA | [gate-b-sandbox-qa.md](gate-b-sandbox-qa.md) | `B-SBX-001` 至 `B-SBX-014` 全部 `PASS` | `NOT_RUN` |
+| C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（待 Inno 商业许可/工具） |
+| D — signing QA | [gate-d-signing-qa.md](gate-d-signing-qa.md) | `D-SIGN-001` 至 `D-SIGN-008` 全部 `PASS` | `BLOCKED`（待合法 Publisher/正式证书） |
+
+## 自动化与正式发布前置项
+
+生命周期证据索引必须明确覆盖 `reinstall`、`upgrade`、`uninstall`，并记录 `SHA256` 与 `Authenticode` 验证结论。
+
+- [ ] 在 x64 Windows 10 22H2 或更新版本，用锁定的 Python/依赖和预置 wheelhouse 完成正式构建；`sourceTests=PASS`。
+- [ ] standalone staging tree 含 `FastOrder.exe`、静态资源、配置、图标和必需运行时数据；不含 `.py`、`.env`、`runtime`、`logs`、tokens、数据库、测试文件、秘密或开发机绝对路径；`packagedSmoke=PASS`。
+- [ ] 正式制品嵌入 LIVE fail-closed 生产策略；Sandbox QA 始终使用独立构建目录和 `packaging/sandbox-qa-policy.json`，不能混用。
+- [ ] Inno Setup 7.1 x64 编译成功，稳定 AppId 和 `Program Files\FastOrder` 目标已核对，并保存有效商用许可证记录。
+- [ ] `Write-SHA256.ps1`、`New-BuildManifest.ps1` 和独立 hash 校验完成；manifest 记录源 commit/tree、输入 hash、artifact hash、签名和所有 Gate 证据。
+- [ ] 第二人批准四个 Gate、manifest、Sandbox broker-side 连接/撤单证据、签名输出和最终发布制品。
+
+## 状态与证据规则
+
+每个步骤只能是 `PASS`、`FAIL` 或 `BLOCKED`。任何 `FAIL` 或 `BLOCKED` 都是 release no-go；不能用未执行、模拟或未脱敏材料代替 PASS。四个 Gate 和自动化前置项全部 PASS 后，发布负责人才能把正式发布结论标记为 `GO`。
+
+证据必须包含 Gate/步骤 ID、时间（含时区）、操作者、OS/build、产品版本、环境、结果、退出码或 broker-side 状态及必要的 SHA-256。Account ID、profile/order/client ID 只保留末 4 位；App Key、App Secret、token、cookie、密码、手机号、Authorization 头、私钥、完整 `.env`、`runtime/`、数据库、原始网络包和未裁剪截图均禁止进入证据。证据存放在访问受控目录，不提交 Git；发现泄漏立即标记 `FAIL` 并撤销/重置受影响凭据。
+
+发布结论：`GO` / `NO-GO`
+
+发布负责人：
+
+日期（含时区）：
+
+证据包索引：

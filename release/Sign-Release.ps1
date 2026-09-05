@@ -7,6 +7,8 @@ param(
     [Parameter(Mandatory = $true)] [string]$TimestampUrl
 )
 $ErrorActionPreference = 'Stop'
+if ($TimestampUrl -notmatch '^https://') { throw 'RFC 3161 timestamp URL must use HTTPS.' }
+if ($CertificateThumbprint -notmatch '^[A-Fa-f0-9]{40,64}$') { throw 'Certificate thumbprint format is invalid.' }
 $signtool = (Get-Command $SignToolPath -ErrorAction SilentlyContinue)
 if (-not $signtool) { throw "$SignToolPath not found; install Windows SDK before signing." }
 $extra = if ($AdditionalSignToolArgs) { $AdditionalSignToolArgs -split '\s+' } else { @() }

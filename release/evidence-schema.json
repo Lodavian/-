@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fastorder.invalid/release-evidence.schema.json",
+  "title": "FastOrder release qualification evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "product", "releaseClass", "candidate", "qaEnvironment", "gates", "credentialScan", "signature", "redactionVerified", "approver", "notes"],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "product": {"const": "FastOrder"},
+    "releaseClass": {"enum": ["formal", "internal", "sandbox"]},
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "tree", "environment", "executable", "installer", "policy", "uiHashes"],
+      "properties": {
+        "commit": {"type": "string"}, "tree": {"type": "string"}, "environment": {"enum": ["LIVE", "SANDBOX"]},
+        "executable": {"$ref": "#/$defs/artifact"}, "installer": {"$ref": "#/$defs/artifact"}, "policy": {"$ref": "#/$defs/artifact"},
+        "uiHashes": {
+          "type": "object", "additionalProperties": false, "required": ["source", "standalone", "installed"],
+          "properties": {"source": {"$ref": "#/$defs/uiHashSet"}, "standalone": {"$ref": "#/$defs/uiHashSet"}, "installed": {"$ref": "#/$defs/uiHashSet"}}
+        }
+      }
+    },
+    "qaEnvironment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["windowsVersion", "userType", "python", "nuitka", "msvc", "windowsSdk", "innoSetup"],
+      "properties": {"windowsVersion": {"type": "string"}, "userType": {"type": "string"}, "python": {"type": "string"}, "nuitka": {"type": "string"}, "msvc": {"type": "string"}, "windowsSdk": {"type": "string"}, "innoSetup": {"type": "string"}}
+    },
+    "gates": {"type": "object", "additionalProperties": false, "required": ["A", "B", "C", "D"], "properties": {"A": {"$ref": "#/$defs/gate"}, "B": {"$ref": "#/$defs/gate"}, "C": {"$ref": "#/$defs/gate"}, "D": {"$ref": "#/$defs/gate"}}},
+    "credentialScan": {"$ref": "#/$defs/credentialScan"}, "signature": {"$ref": "#/$defs/signature"},
+    "redactionVerified": {"type": "boolean"}, "approver": {"type": "string"}, "notes": {"type": "string"}
+  },
+  "$defs": {
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string"}}},
+    "uiHashSet": {"type": "object", "additionalProperties": false, "required": ["static/index.html", "static/styles.css", "static/app.js"], "properties": {"static/index.html": {"type": "string"}, "static/styles.css": {"type": "string"}, "static/app.js": {"type": "string"}}},
+    "evidenceRef": {"type": "object", "additionalProperties": false, "required": ["stepId", "path", "sha256"], "properties": {"stepId": {"type": "string"}, "path": {"type": "string"}, "sha256": {"type": "string"}}},
+    "gate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "tester", "reviewer", "startedAtUtc", "completedAtUtc", "evidenceRef", "redactionVerified", "blocker", "notes"],
+      "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}, "tester": {"type": "string"}, "reviewer": {"type": "string"}, "startedAtUtc": {"type": "string"}, "completedAtUtc": {"type": "string"}, "evidenceRef": {"type": "array", "items": {"$ref": "#/$defs/evidenceRef"}}, "redactionVerified": {"type": "boolean"}, "blocker": {"type": "string"}, "notes": {"type": "string"}}
+    },
+    "credentialScan": {"type": "object", "additionalProperties": false, "required": ["status", "findings", "scannedRoots", "completedAtUtc", "evidenceSha256"], "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}, "findings": {"type": "array", "items": {"type": "string"}}, "scannedRoots": {"type": "array", "items": {"type": "string"}}, "completedAtUtc": {"type": "string"}, "evidenceSha256": {"type": "string"}}},
+    "signature": {"type": "object", "additionalProperties": false, "required": ["status", "timestampStatus", "timestampUrl", "signerSubject", "signerThumbprint"], "properties": {"status": {"type": "string"}, "timestampStatus": {"type": "string"}, "timestampUrl": {"type": "string"}, "signerSubject": {"type": "string"}, "signerThumbprint": {"type": "string"}}}
+  }
+}
