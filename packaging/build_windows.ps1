@@ -100,7 +100,10 @@ if ($LASTEXITCODE -ne 0) { Fail "Runtime dependencies were not installed from of
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
     if (-not (Test-Path -LiteralPath $vswhere)) { Fail "VS 2022 vswhere.exe was not found." }
-    $vsRoot = (& $vswhere -latest -products * -property installationPath).Trim()
+    $vsRootOutput = @(& $vswhere -latest -all -products * -property installationPath)
+    $vsRoot = ($vsRootOutput | Select-Object -First 1)
+    if (-not $vsRoot) { Fail "VS 2022 Build Tools installation was not found." }
+    $vsRoot = $vsRoot.Trim()
     $devCmd = Join-Path $vsRoot "Common7\Tools\VsDevCmd.bat"
     if (-not (Test-Path -LiteralPath $devCmd)) { Fail "VS 2022 developer environment was not found." }
     $environmentLines = & cmd.exe /d /s /c "`"$devCmd`" -arch=x64 -host_arch=x64 >nul && set"
