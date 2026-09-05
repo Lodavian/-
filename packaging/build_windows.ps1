@@ -23,6 +23,21 @@ $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 
 function Fail([string]$Message) { throw "FastOrder build preflight failed: $Message" }
 
+function Test-NuitkaToolCache([switch]$RequirePresent) {
+    $toolManifestPath = Join-Path $PackagingRoot "nuitka-tool-manifest.json"
+    try { $toolManifest = Get-Content -LiteralPath $toolManifestPath -Raw | ConvertFrom-Json }
+    catch { Fail "Invalid Nuitka tool hash manifest: $toolManifestPath" }
+    foreach ($property in $toolManifest.files.PSObject.Properties) {
+        $toolPath = Join-Path $env:NUITKA_CACHE_DIR $property.Name
+        if (-not (Test-Path -LiteralPath $toolPath)) {
+            if ($RequirePresent) { Fail "Nuitka tool cache is missing: $($property.Name)" }
+            continue
+        }
+        $actual = (Get-FileHash -LiteralPath $toolPath -Algorithm SHA256).Hash
+        if ($actual -ne [string]$property.Value) { Fail "Nuitka tool hash mismatch: $($property.Name)" }
+    }
+}
+
 if (-not $InternalUnsignedCandidate -and -not $CompanyName) {
     Fail "A legal CompanyName is required for a formal candidate. Use -InternalUnsignedCandidate only for unsigned internal QA."
 }
@@ -37,6 +52,7 @@ if ($InternalUnsignedCandidate -and -not $SandboxQa) {
     $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
     $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
 }
+Test-NuitkaToolCache -RequirePresent:(-not $AllowToolDownloads)
 
 $GitState = @(& git -C $ProjectRoot status --porcelain --untracked-files=all)
 if ($LASTEXITCODE -ne 0) { Fail "Source root is not a Git repository." }
@@ -202,6 +218,8 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "Nuitka standalone compilation failed." }
 }
 finally { Pop-Location }
+
+Test-NuitkaToolCache -RequirePresent
 
 if (-not (Test-Path -LiteralPath $DistRoot)) { Fail "FastOrder.dist was not generated." }
 New-Item -ItemType Directory -Force -Path (Join-Path $DistRoot "config") | Out-Null

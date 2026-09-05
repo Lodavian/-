@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "source": "https://dependencywalker.com/depends22_x64.zip",
+  "files": {
+    "downloads/depends/x86_64/depends22_x64.zip": "35DB68A613874A2E8C1422EB0EA7861F825FC71717D46DABF1F249CE9634B4F1",
+    "downloads/depends/x86_64/depends.exe": "57C483DC985A9757501993E969C2A7043C26517F97FD49A42B33D2D6A4193D8B"
+  }
+}
