@@ -1,30 +1,24 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
 import inspect
 import json
 import logging
 import secrets
 import shutil
-import sys
-import threading
 import time
-import webbrowser
 from collections import deque
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
 from aiohttp import WSMsgType, web
 
-from fast_order.config import Settings, load_settings
+from fast_order.config import Settings
 from fast_order.connection_errors import classify_connection_error
 from fast_order.credentials import (
     CredentialStore,
     CredentialStoreError,
     ResolvedCredentials,
-    harden_windows_acl,
     mask_account_id,
     resolve_credentials,
 )
@@ -83,16 +77,18 @@ class SdkSecretFilter(logging.Filter):
 
 
 class FastOrderApplication:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, static_root: Path | None = None):
         self.settings = settings
+        self.static_root = Path(static_root or getattr(settings, "resource_root", ROOT) / "static").resolve()
         self.session_token = secrets.token_urlsafe(32)
         self.websockets: set[web.WebSocketResponse] = set()
         self.controller_ws: web.WebSocketResponse | None = None
         self.websocket_roles: dict[web.WebSocketResponse, str] = {}
         self.gateway = WebullGateway(settings, self._receive_gateway_event)
         self.service = TradingService(settings, self.gateway, self.broadcast, market_active=False)
+        app_paths = getattr(settings, "app_paths", None)
         project_root = Path(getattr(settings, "project_root", ROOT))
-        self.credential_store = CredentialStore(project_root)
+        self.credential_store = CredentialStore(app_paths or project_root)
         self._resolved_credentials: ResolvedCredentials | None = None
         self._session_credentials: tuple[str, str, str] | None = None
         self._binding_sessions: dict[str, dict[str, Any]] = {}
@@ -140,7 +136,7 @@ class FastOrderApplication:
         self._status_task: asyncio.Task[None] | None = None
 
     async def index(self, _request: web.Request) -> web.Response:
-        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        html = (self.static_root / "index.html").read_text(encoding="utf-8")
         html = html.replace("__SESSION_TOKEN__", self.session_token)
         return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
@@ -148,7 +144,7 @@ class FastOrderApplication:
         name = request.path.lstrip("/")
         if name not in {"styles.css", "app.js"}:
             raise web.HTTPNotFound()
-        return web.FileResponse(STATIC / name, headers={"Cache-Control": "no-store"})
+        return web.FileResponse(self.static_root / name, headers={"Cache-Control": "no-store"})
 
     async def health(self, _request: web.Request) -> web.Response:
         # Keep the original endpoint for existing local launchers/monitors.
@@ -741,64 +737,12 @@ class FastOrderApplication:
         self.service.receive_gateway_event(event)
 
 
-def configure_logging(root: Path) -> None:
-    log_dir = root / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    handler = RotatingFileHandler(
-        log_dir / "fast_order.log",
-        maxBytes=1_000_000,
-        backupCount=3,
-        encoding="utf-8",
-    )
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-    handler.addFilter(SdkSecretFilter())
-    console = logging.StreamHandler()
-    console.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-    console.addFilter(SdkSecretFilter())
-    logging.basicConfig(level=logging.INFO, handlers=[handler, console])
-    # aiohttp's default access format includes the WebSocket query string,
-    # which carries our ephemeral local session token.
-    logging.getLogger("aiohttp.access").disabled = True
-
-
-def harden_local_runtime(root: Path) -> None:
-    """Best-effort protection for advanced .env fallback and runtime logs."""
-    for path in (root / ".env", root / "runtime", root / "logs"):
-        if path.exists() and not harden_windows_acl(path):
-            print(f"安全警告: 无法收紧本地文件权限: {path.name}", file=sys.stderr)
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="极速下单 - 券商API单票交易终端")
-    parser.add_argument("--no-browser", action="store_true", help="启动后不自动打开浏览器")
-    return parser.parse_args()
-
-
 def main() -> None:
-    args = parse_args()
-    try:
-        settings = load_settings(ROOT)
-    except ValueError as exc:
-        print(f"配置错误: {exc}", file=sys.stderr)
-        raise SystemExit(2) from exc
-    (ROOT / "runtime").mkdir(parents=True, exist_ok=True)
-    (ROOT / "logs").mkdir(parents=True, exist_ok=True)
-    harden_local_runtime(ROOT)
-    configure_logging(ROOT)
-    application = FastOrderApplication(settings)
-    url = f"http://127.0.0.1:{settings.port}"
-    print(f"极速下单已启动: {url}")
-    mode = "Sandbox 模拟" if settings.sandbox else "LIVE 实盘"
-    print(f"当前模式: {mode}。点击买入/卖出后会直接发送订单。")
-    if not args.no_browser:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
-    web.run_app(
-        application.app,
-        host="127.0.0.1",
-        port=settings.port,
-        print=None,
-        access_log=None,
-    )
+    # Keep app.py as the development entry point. The packaged executable uses
+    # bootstrap.py, but both share the same server lifecycle implementation.
+    from fast_order.bootstrap import development_main
+
+    development_main(ROOT)
 
 
 if __name__ == "__main__":

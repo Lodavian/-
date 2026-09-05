@@ -1,0 +1,53 @@
+{
+  "requiredPaths": [
+    "static/index.html",
+    "static/styles.css",
+    "static/app.js",
+    "config/production.json",
+    "FastOrder.ico"
+  ],
+  "requiredPackageData": [
+    "webull/core/data/endpoints.json",
+    "webull/core/data/retry_config.json",
+    "grpc/_cython/_credentials/roots.pem",
+    "certifi/cacert.pem",
+    "tzdata/zoneinfo/America/New_York"
+  ],
+  "forbiddenNames": [
+    ".env",
+    ".env.*",
+    "__pycache__",
+    "packaging",
+    "tests",
+    "webull_tokens",
+    "orders.db",
+    "orders.db-*",
+    "*.log",
+    "*.py",
+    "*.pyc",
+    "*.pdb",
+    "*.c",
+    "*.obj",
+    "account_profile.json",
+    "broker_tokens",
+    "runtime",
+    "logs"
+  ],
+  "allowedRootDirectories": [
+    "static", "fast_order", "webull", "grpc", "google", "paho", "keyring",
+    "win32ctypes", "tzdata", "certifi", "aiohttp", "aiosignal", "aiohappyeyeballs",
+    "attrs", "cachetools", "charset_normalizer", "cryptography", "frozenlist",
+    "idna", "importlib_metadata", "jaraco", "jmespath", "more_itertools", "multidict",
+    "cffi", "pycparser", "zipp", "colorama",
+    "propcache", "requests", "six", "typing_extensions", "urllib3", "yarl",
+    "backports", "LICENSES", "config"
+  ],
+  "allowedRootPatterns": ["keyring-*.dist-info", "webull_openapi_python_sdk-*.dist-info"],
+  "allowedRootExtensions": [".exe", ".dll", ".pyd", ".bin", ".dat", ".manifest", ".json", ".pem", ".txt", ".ico"],
+  "textSecretPatterns": [
+    "(?i)(api[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key)\\s*[:=]\\s*[^\\s<>{}]+",
+    "(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",
+    "(?i)FAST_ORDER_(?:API|ACCESS|SECRET|TOKEN)[A-Z0-9_]*\\s*=\\s*[^\\s]+",
+    "(?i)\\bsk-[a-z0-9]{20,}\\b"
+  ]
+}

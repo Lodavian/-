@@ -1,0 +1,35 @@
+{
+  "mode": "standalone",
+  "windowsConsoleMode": "force",
+  "pythonFlag": "safe_path",
+  "entrypoint": "FastOrder.py",
+  "dataDirs": [
+    {"source": "static", "destination": "static"},
+    {"source": "config", "destination": "config"}
+  ],
+  "packages": [
+    "fast_order", "aiohttp", "webull", "webull.trade.events", "grpc", "paho",
+    "keyring", "keyring.backends", "win32ctypes", "tzdata", "certifi",
+    "google.protobuf"
+  ],
+  "modules": ["keyring.backends.Windows", "cryptography.hazmat.bindings._rust"],
+  "packageData": [
+    "webull",
+    "grpc",
+    "certifi",
+    "tzdata"
+  ],
+  "distributionMetadata": ["keyring", "webull-openapi-python-sdk"],
+  "nofollowImports": ["tests", "pytest", "packaging"],
+  "windows": {
+    "msvcVersion": "14.3",
+    "icon": "packaging/assets/FastOrder.ico",
+    "companyName": "injected from signing certificate subject",
+    "productName": "极速下单",
+    "fileVersion": "1.0.0.0",
+    "productVersion": "1.0.0",
+    "fileDescription": "极速下单本地交易客户端"
+  },
+  "report": "compilation-report.xml",
+  "notes": "The checked-in build_windows.ps1 is the executable source of truth; this file is an auditable manifest of its inclusion contract."
+}

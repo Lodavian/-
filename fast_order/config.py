@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import os
 import math
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
+
+from .paths import AppPaths, PathResolutionError
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -105,10 +109,31 @@ class Settings:
     sdk_connect_timeout: float = 10.0
     sdk_read_timeout: float = 15.0
     sdk_total_timeout: float = 20.0
+    paths: AppPaths | None = None
+
+    @property
+    def app_paths(self) -> AppPaths:
+        return self.paths or AppPaths.resolve(self.project_root, self.project_root, development=True)
+
+    @property
+    def resource_root(self) -> Path:
+        return self.app_paths.resource_root
+
+    @property
+    def data_root(self) -> Path:
+        return self.app_paths.data_root
 
     @property
     def token_dir(self) -> Path:
-        return self.project_root / "runtime" / "webull_tokens"
+        return self.app_paths.broker_tokens
+
+    @property
+    def profile_path(self) -> Path:
+        return self.app_paths.account_profile
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.app_paths.logs
 
     @property
     def api_host(self) -> str:
@@ -124,8 +149,12 @@ class Settings:
 
 
 def load_settings(project_root: Path | None = None) -> Settings:
-    root = (project_root or PROJECT_ROOT).resolve()
-    load_env_file(root / ".env")
+    resource_root = (project_root or PROJECT_ROOT).resolve()
+    load_env_file(resource_root / ".env")
+    try:
+        paths = AppPaths.resolve(resource_root)
+    except PathResolutionError as exc:
+        raise ValueError(str(exc)) from exc
     sandbox = _bool_env("FAST_ORDER_SANDBOX", True)
     live_allowed = _bool_env("FAST_ORDER_LIVE_ALLOWED", False)
 
@@ -151,7 +180,9 @@ def load_settings(project_root: Path | None = None) -> Settings:
         max_open_orders = _int_env("FAST_ORDER_MAX_OPEN_ORDERS", 1, maximum=10_000)
 
     return Settings(
-        project_root=root,
+        # ``project_root`` is retained as the writable data root for existing
+        # callers. Read-only resources are available through ``paths``.
+        project_root=paths.data_root,
         app_key=os.environ.get("FAST_ORDER_WEBULL_APP_KEY", "").strip(),
         app_secret=os.environ.get("FAST_ORDER_WEBULL_APP_SECRET", "").strip(),
         account_id=os.environ.get("FAST_ORDER_WEBULL_ACCOUNT_ID", "").strip(),
@@ -170,4 +201,119 @@ def load_settings(project_root: Path | None = None) -> Settings:
         sdk_connect_timeout=_float_env("FAST_ORDER_SDK_CONNECT_TIMEOUT", 10, maximum=300),
         sdk_read_timeout=_float_env("FAST_ORDER_SDK_READ_TIMEOUT", 15, maximum=300),
         sdk_total_timeout=_float_env("FAST_ORDER_SDK_TOTAL_TIMEOUT", 20, maximum=600),
+        paths=paths,
+    )
+
+
+_PRODUCTION_FIELDS = frozenset(
+    {
+        "schemaVersion",
+        "productVersion",
+        "environment",
+        "liveAllowed",
+        "defaultSymbol",
+        "port",
+        "maxOrderQty",
+        "maxOrderValue",
+        "maxMarketQty",
+        "maxMarketEstimatedValue",
+        "maxDailyGrossNotional",
+        "maxOpenOrders",
+        "quoteStaleSeconds",
+        "sdkConnectTimeout",
+        "sdkReadTimeout",
+        "sdkTotalTimeout",
+    }
+)
+
+
+def load_production_settings(paths: AppPaths) -> Settings:
+    """Load the immutable runtime policy from ``config/production.json``.
+
+    Production deliberately has a separate loader from :func:`load_settings`:
+    it never reads ``.env`` or credential environment variables.  Credentials
+    are supplied by the account profile/token store after this policy has been
+    loaded by the bootstrap.
+    """
+    config_path = paths.resource_root / "config" / "production.json"
+    if not config_path.is_file():
+        raise ValueError("生产配置文件缺失")
+    try:
+        value = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("生产配置文件无效") from exc
+    if not isinstance(value, dict):
+        raise ValueError("生产配置根节点必须是对象")
+    if set(value) != _PRODUCTION_FIELDS:
+        raise ValueError("生产配置字段不完整或包含未知字段")
+
+    if type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
+        raise ValueError("生产配置 schemaVersion 不受支持")
+    product_version = value["productVersion"]
+    if product_version != "1.0.0":
+        raise ValueError("生产配置 productVersion 不受支持")
+    environment = value["environment"]
+    if environment not in {"SANDBOX", "LIVE"}:
+        raise ValueError("生产配置 environment 无效")
+    if type(value["liveAllowed"]) is not bool:
+        raise ValueError("生产配置 liveAllowed 无效")
+    if environment == "LIVE" and not value["liveAllowed"]:
+        raise ValueError("LIVE 生产配置必须启用 liveAllowed")
+
+    default_symbol = value["defaultSymbol"]
+    if not isinstance(default_symbol, str) or not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,15}", default_symbol):
+        raise ValueError("生产配置 defaultSymbol 无效")
+
+    def production_int(key: str, minimum: int, maximum: int) -> int:
+        number = value[key]
+        if type(number) is not int or not minimum <= number <= maximum:
+            raise ValueError(f"生产配置 {key} 无效")
+        return number
+
+    def production_float(key: str, minimum: float, maximum: float) -> float:
+        number = value[key]
+        if isinstance(number, bool) or not isinstance(number, (int, float)):
+            raise ValueError(f"生产配置 {key} 无效")
+        result = float(number)
+        if not math.isfinite(result) or not minimum < result <= maximum:
+            raise ValueError(f"生产配置 {key} 无效")
+        return result
+
+    port = production_int("port", 1024, 65535)
+    max_order_qty = production_int("maxOrderQty", 1, 1_000_000)
+    max_market_qty = production_int("maxMarketQty", 1, 1_000_000)
+    max_open_orders = production_int("maxOpenOrders", 1, 10_000)
+    max_order_value = production_float("maxOrderValue", 0, 1_000_000_000)
+    max_market_value = production_float("maxMarketEstimatedValue", 0, 1_000_000_000)
+    max_daily_notional = production_float("maxDailyGrossNotional", 0, 10_000_000_000)
+    quote_stale = production_float("quoteStaleSeconds", 0, 300)
+    sdk_connect = production_float("sdkConnectTimeout", 0, 300)
+    sdk_read = production_float("sdkReadTimeout", 0, 300)
+    sdk_total = production_float("sdkTotalTimeout", 0, 600)
+    if max_market_qty > max_order_qty or max_market_value > max_order_value:
+        raise ValueError("生产配置市价单上限不得超过通用订单上限")
+    if sdk_total < max(sdk_connect, sdk_read):
+        raise ValueError("生产配置总超时不得短于连接或读取超时")
+
+    return Settings(
+        project_root=paths.data_root,
+        app_key="",
+        app_secret="",
+        account_id="",
+        account_hint="",
+        sandbox=environment == "SANDBOX",
+        default_symbol=default_symbol,
+        max_order_qty=max_order_qty,
+        max_order_value=max_order_value,
+        quote_stale_seconds=quote_stale,
+        port=port,
+        live_allowed=value["liveAllowed"],
+        max_market_qty=max_market_qty,
+        max_market_estimated_value=max_market_value,
+        max_daily_gross_notional=max_daily_notional,
+        max_open_orders=max_open_orders,
+        sdk_connect_timeout=sdk_connect,
+        sdk_read_timeout=sdk_read,
+        sdk_total_timeout=sdk_total,
+        paths=paths,
     )

@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol
 
+from .paths import AppPaths
+
 
 SERVICE_NAME = "极速下单.WebullOpenAPI"
 PROFILE_FILENAME = "account_profile.json"
@@ -114,13 +116,14 @@ class CredentialStore:
 
     def __init__(
         self,
-        project_root: Path,
+        project_root: Path | AppPaths,
         *,
         backend: _KeyringBackend | None = None,
         require_windows_backend: bool = True,
     ) -> None:
-        self.project_root = Path(project_root).resolve()
-        self.profile_path = self.project_root / "runtime" / PROFILE_FILENAME
+        self.paths = project_root if isinstance(project_root, AppPaths) else AppPaths.resolve(project_root, project_root, development=True)
+        self.project_root = self.paths.data_root
+        self.profile_path = self.paths.account_profile
         self._backend = backend
         self._require_windows_backend = require_windows_backend
         self._protect_metadata_acl = backend is None
@@ -162,11 +165,20 @@ class CredentialStore:
             allowed = {"profile_id", "account_mask", "environment", "auto_connect"}
             if not isinstance(raw, dict) or set(raw) != allowed:
                 raise ValueError("unexpected profile fields")
+            if (
+                not isinstance(raw["profile_id"], str)
+                or not raw["profile_id"].strip()
+                or not isinstance(raw["account_mask"], str)
+                or not raw["account_mask"].startswith("••••")
+                or raw["environment"] not in {"SANDBOX", "LIVE"}
+                or type(raw["auto_connect"]) is not bool
+            ):
+                raise ValueError("invalid profile metadata")
             profile = AccountProfile(
                 profile_id=str(raw["profile_id"]),
                 account_mask=str(raw["account_mask"]),
                 environment=str(raw["environment"]),
-                auto_connect=bool(raw["auto_connect"]),
+                auto_connect=raw["auto_connect"],
             )
         except (OSError, ValueError, TypeError, json.JSONDecodeError, KeyError) as exc:
             raise CredentialStoreCorrupt("账户配置元数据损坏") from exc

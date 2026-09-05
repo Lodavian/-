@@ -1,0 +1,10 @@
+{
+  "sourceTests": "NOT_RUN",
+  "packagedSmoke": "NOT_RUN",
+  "sandboxClosure": "NOT_RUN",
+  "installerQa": "NOT_RUN",
+  "signatureVerification": "NOT_RUN",
+  "windowsSdk": "UNRECORDED",
+  "approver": "UNASSIGNED",
+  "notes": "Replace this candidate template with reviewed, non-sensitive evidence. Never mark PASS without the corresponding logs and broker-side verification."
+}

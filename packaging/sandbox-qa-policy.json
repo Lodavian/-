@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "productVersion": "1.0.0",
+  "environment": "SANDBOX",
+  "liveAllowed": false,
+  "defaultSymbol": "AAPL",
+  "port": 8765,
+  "quoteStaleSeconds": 8,
+  "maxOrderQty": 1000,
+  "maxOrderValue": 25000,
+  "maxMarketQty": 100,
+  "maxMarketEstimatedValue": 5000,
+  "maxDailyGrossNotional": 25000,
+  "maxOpenOrders": 1,
+  "sdkConnectTimeout": 10,
+  "sdkReadTimeout": 15,
+  "sdkTotalTimeout": 20
+}

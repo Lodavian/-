@@ -62,7 +62,7 @@ class WebullGateway:
         self._stream_rebuild_task: asyncio.Task[Any] | None = None
         self._stream_rebuild_attempts = 0
         self._max_rebuild_attempts = 5
-        self._logger = logging.getLogger("fast_order.webull")
+        self._logger = logging.getLogger("fast_order.broker")
         # Credentials are mutable only while the single gateway lifecycle is
         # fully disconnected.  This keeps UI binding compatible with the
         # existing .env fallback without creating a second TradeClient.

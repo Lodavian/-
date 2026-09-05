@@ -1,0 +1,8 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "static/app.js": "c6dfa98a139761eddcdbd03117ebe155475a28ffb8447a13bd3ca7218513963b",
+    "static/index.html": "bbc49478141348365f513d84f9b8aad96c1a9cce2dd796b92d37a46941f8349d",
+    "static/styles.css": "528e6e634c199bbab1a45379247c9489308512e5ad04b8b68b5922cd3b34efe0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "productName": "FastOrder",
+  "version": "1.0.0",
+  "python": "3.11.9",
+  "architecture": "win-amd64",
+  "nuitka": "4.2",
+  "mode": "standalone",
+  "entrypoint": "FastOrder.py",
+  "outputDirectory": "build/windows-x64",
+  "buildVenv": "build/.venv-windows311",
+  "wheelhouse": "packaging/wheelhouse",
+  "compiler": "msvc",
+  "msvcVersion": "14.3",
+  "icon": "packaging/assets/FastOrder.ico",
+  "excludeImports": ["tests", "pytest", "packaging"],
+  "report": "compilation-report.xml",
+  "manifest": "artifact-manifest.json"
+}

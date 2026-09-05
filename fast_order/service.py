@@ -95,7 +95,7 @@ class TradingService:
         self.positions_updated_at: float | None = None
         self.positions_status = "not_connected"
         self.positions_message = "账户未连接"
-        self.ledger = OrderLedger(settings.project_root / "runtime" / "orders.db")
+        self.ledger = OrderLedger(settings.app_paths.orders_db)
         self.orders = self.ledger.recent()
         self._connect_lock = asyncio.Lock()
         self._symbol_lock = asyncio.Lock()

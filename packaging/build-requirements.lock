@@ -1,0 +1,11 @@
+# Offline build-tool lock for FastOrder 1.0.0.
+# This file is intentionally consumed only by a pre-provisioned builder. The
+# build script never installs packages or downloads a compiler/toolchain.
+# These hashes are the PyPI sdist/wheel hashes used by the offline wheelhouse.
+# The wheelhouse verifier additionally checks every staged filename before pip.
+Nuitka==4.2 \
+    --hash=sha256:b6112c10a5d0431e2b4309780257a03049a42605290e83f771d57a067a387410
+ordered-set==4.1.0 \
+    --hash=sha256:046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562
+wheel==0.45.1 \
+    --hash=sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248

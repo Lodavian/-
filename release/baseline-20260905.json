@@ -1,0 +1,26 @@
+{
+  "baselineTag": "productization-baseline-20260905",
+  "commit": "a3295905c250b6cbf3574ca67f408700c0fd17fb",
+  "sourceTree": "0d8afd639cb3127c1ce5bc5b5ff6fd4da98533f5",
+  "capturedOn": "2026-09-05",
+  "platform": "Windows 10 22H2 10.0.19045 x64",
+  "python": "CPython 3.11.9 x64",
+  "runtimeDependencies": {
+    "aiohttp": "3.14.3",
+    "keyring": "25.7.0",
+    "tzdata": "2026.3",
+    "webull-openapi-python-sdk": "2.0.18"
+  },
+  "checks": {
+    "pytest": "98 passed",
+    "compileall": "PASS",
+    "nodeCheckStaticAppJs": "PASS",
+    "pipCheck": "No broken requirements found",
+    "stagedSecretScan": "PASS"
+  },
+  "uiSha256": {
+    "static/index.html": "BBC49478141348365F513D84F9B8AAD96C1A9CCE2DD796B92D37A46941F8349D",
+    "static/styles.css": "528E6E634C199BBAB1A45379247C9489308512E5AD04B8B68B5922CD3B34EFE0",
+    "static/app.js": "C6DFA98A139761EDDCDBD03117EBE155475A28FFB8447A13BD3CA7218513963B"
+  }
+}

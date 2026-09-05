@@ -3,6 +3,13 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest-*/
+.playwright-cli/
+build/
+output/
+release/artifacts/
+packaging/wheelhouse/
+qa-*.png
 runtime/
 # Non-sensitive account metadata lives here at runtime; keep it local because it
 # identifies the selected environment and masked account.
