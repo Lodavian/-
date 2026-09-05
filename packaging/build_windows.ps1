@@ -255,6 +255,12 @@ if ($LASTEXITCODE -ne 0) { Fail "Third-party license collection failed." }
 Copy-Item -LiteralPath (Join-Path $PackagingRoot "assets\FastOrder.ico") -Destination (Join-Path $DistRoot "FastOrder.ico") -Force
 & $BuildPython (Join-Path $PackagingRoot "verify_build.py") --source-root $ProjectRoot --dist $DistRoot --manifest-out $ManifestPath
 if ($LASTEXITCODE -ne 0) { Fail "Artifact whitelist, resource, or secret audit failed." }
-& $BuildPython (Join-Path $PackagingRoot "smoke_test_exe.py") --exe (Join-Path $DistRoot "FastOrder.exe") --ui-manifest (Join-Path $PackagingRoot "ui-hashes.json")
+$SmokeArgs = @(
+    (Join-Path $PackagingRoot "smoke_test_exe.py"),
+    "--exe", (Join-Path $DistRoot "FastOrder.exe"),
+    "--ui-manifest", (Join-Path $PackagingRoot "ui-hashes.json")
+)
+if ($InternalUnsignedCandidate) { $SmokeArgs += "--allow-credential-manager-unavailable" }
+& $BuildPython @SmokeArgs
 if ($LASTEXITCODE -ne 0) { Fail "Packaged executable smoke failed." }
 Write-Host "FastOrder standalone ready: $DistRoot"

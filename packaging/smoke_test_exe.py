@@ -16,8 +16,13 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 from contextlib import closing
 from pathlib import Path
+
+
+CREDENTIAL_SERVICE = "极速下单.WebullOpenAPI"
+CREDENTIAL_FIELDS = ("app_key", "app_secret", "account_id")
 
 
 def sha256(path: Path) -> str:
@@ -59,7 +64,38 @@ def wait_until_live(process: subprocess.Popen[bytes], deadline: float) -> None:
     raise AssertionError("FastOrder /livez did not become ready")
 
 
-def websocket_handshake(token: str) -> None:
+def _receive_websocket_json(connection: socket.socket, initial: bytes) -> dict[str, object]:
+    buffer = bytearray(initial)
+
+    def require(size: int) -> None:
+        while len(buffer) < size:
+            chunk = connection.recv(4096)
+            if not chunk:
+                raise AssertionError("WebSocket closed before initial state arrived")
+            buffer.extend(chunk)
+
+    require(2)
+    first, second = buffer[0], buffer[1]
+    if first & 0x0F != 1 or second & 0x80:
+        raise AssertionError("Unexpected WebSocket initial frame")
+    cursor = 2
+    length = second & 0x7F
+    if length == 126:
+        require(cursor + 2)
+        length = int.from_bytes(buffer[cursor : cursor + 2], "big")
+        cursor += 2
+    elif length == 127:
+        require(cursor + 8)
+        length = int.from_bytes(buffer[cursor : cursor + 8], "big")
+        cursor += 8
+    require(cursor + length)
+    value = json.loads(bytes(buffer[cursor : cursor + length]).decode("utf-8"))
+    if not isinstance(value, dict):
+        raise AssertionError("WebSocket initial state is not a JSON object")
+    return value
+
+
+def websocket_handshake(token: str) -> dict[str, object]:
     key = base64.b64encode(os.urandom(16)).decode("ascii")
     request = (
         "GET /ws HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n"
@@ -69,9 +105,83 @@ def websocket_handshake(token: str) -> None:
     ).encode("ascii")
     with socket.create_connection(("127.0.0.1", 8765), timeout=3) as connection:
         connection.sendall(request)
-        response = connection.recv(4096)
-    if not response.startswith(b"HTTP/1.1 101"):
-        raise AssertionError(f"WebSocket handshake failed: {response[:100]!r}")
+        response = bytearray()
+        while b"\r\n\r\n" not in response:
+            response.extend(connection.recv(4096))
+        headers, frame = bytes(response).split(b"\r\n\r\n", 1)
+        if not headers.startswith(b"HTTP/1.1 101"):
+            raise AssertionError(f"WebSocket handshake failed: {headers[:100]!r}")
+        return _receive_websocket_json(connection, frame)
+
+
+def rejected_websocket_handshake(token: str, *, origin: str) -> None:
+    key = base64.b64encode(os.urandom(16)).decode("ascii")
+    request = (
+        "GET /ws HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n"
+        f"Origin: {origin}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
+        f"Sec-WebSocket-Protocol: fast-order-session.{token}\r\n\r\n"
+    ).encode("ascii")
+    with socket.create_connection(("127.0.0.1", 8765), timeout=3) as connection:
+        connection.sendall(request)
+        response = connection.recv(1024)
+    if response.startswith(b"HTTP/1.1 101"):
+        raise AssertionError("Invalid WebSocket authentication was accepted")
+
+
+def seed_test_credentials(
+    local_app_data: Path, *, allow_unavailable: bool
+) -> tuple[object | None, str | None]:
+    import keyring
+
+    backend = keyring.get_keyring()
+    backend_name = f"{backend.__class__.__module__}.{backend.__class__.__name__}".lower()
+    if "keyring.backends.windows" not in backend_name and "winvault" not in backend_name:
+        raise AssertionError(f"Windows Credential Manager backend unavailable: {backend_name}")
+    profile_id = uuid.uuid4().hex
+    runtime = local_app_data / "FastOrder" / "runtime"
+    runtime.mkdir(parents=True)
+    profile = {
+        "profile_id": profile_id,
+        "account_mask": "••••0001",
+        "environment": "LIVE",
+        "auto_connect": False,
+    }
+    (runtime / "account_profile.json").write_text(
+        json.dumps(profile, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
+    values = {
+        "app_key": f"packaged-smoke-key-{profile_id}",
+        "app_secret": f"packaged-smoke-secret-{profile_id}",
+        "account_id": f"packaged-smoke-account-{profile_id}",
+    }
+    written: list[str] = []
+    try:
+        for field, value in values.items():
+            keyring.set_password(CREDENTIAL_SERVICE, f"{profile_id}:{field}", value)
+            written.append(field)
+    except Exception as exc:
+        for field in written:
+            try:
+                keyring.delete_password(CREDENTIAL_SERVICE, f"{profile_id}:{field}")
+            except Exception:
+                pass
+        (runtime / "account_profile.json").unlink(missing_ok=True)
+        if allow_unavailable:
+            print(f"Credential Manager smoke skipped in this host session: {type(exc).__name__}")
+            return None, None
+        raise AssertionError("Windows Credential Manager smoke could not be executed") from exc
+    return keyring, profile_id
+
+
+def delete_test_credentials(keyring_module: object | None, profile_id: str | None) -> None:
+    if keyring_module is None or profile_id is None:
+        return
+    for field in CREDENTIAL_FIELDS:
+        try:
+            keyring_module.delete_password(CREDENTIAL_SERVICE, f"{profile_id}:{field}")  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
 
 def stop_process(process: subprocess.Popen[bytes]) -> None:
@@ -108,6 +218,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--ui-manifest", type=Path, required=True)
+    parser.add_argument("--allow-credential-manager-unavailable", action="store_true")
     args = parser.parse_args()
     executable = args.exe.resolve()
     dist = executable.parent
@@ -116,6 +227,10 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="FastOrder Packaged QA ") as temporary:
         local_app_data = Path(temporary) / "含空格和中文"
+        keyring_module, profile_id = seed_test_credentials(
+            local_app_data,
+            allow_unavailable=args.allow_credential_manager_unavailable,
+        )
         process = launch(executable, local_app_data)
         try:
             wait_until_live(process, time.monotonic() + 20)
@@ -124,7 +239,14 @@ def main() -> int:
             match = re.search(rb'name="fast-order-session-token" content="([^"]+)"', html)
             if not match:
                 raise AssertionError("UI session token was not rendered")
-            websocket_handshake(match.group(1).decode("ascii"))
+            token = match.group(1).decode("ascii")
+            initial = websocket_handshake(token)
+            if keyring_module is not None:
+                connection_state = initial.get("connection")
+                if not isinstance(connection_state, dict) or connection_state.get("credentialState") != "CREDENTIALS_SAVED":
+                    raise AssertionError("standalone EXE did not read the test Windows credential")
+            rejected_websocket_handshake("invalid-token", origin="http://127.0.0.1:8765")
+            rejected_websocket_handshake(token, origin="https://attacker.invalid")
             for relative, wanted in expected_ui.items():
                 packaged_file = dist / Path(relative)
                 if sha256(packaged_file) != str(wanted).upper():
@@ -140,7 +262,10 @@ def main() -> int:
             if second.returncode != 0 or process.poll() is not None:
                 raise AssertionError("second launch did not reuse the healthy instance")
         finally:
-            stop_process(process)
+            try:
+                stop_process(process)
+            finally:
+                delete_test_credentials(keyring_module, profile_id)
 
         data_root = local_app_data / "FastOrder"
         database = data_root / "runtime" / "orders.db"
