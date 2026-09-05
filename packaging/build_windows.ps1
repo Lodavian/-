@@ -18,7 +18,7 @@ $Wheelhouse = Join-Path $PackagingRoot "wheelhouse"
 $WheelManifestPath = Join-Path $PackagingRoot "wheelhouse-manifest.json"
 $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
 $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
-$NuitkaWorkRoot = Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"
+$NuitkaWorkRoot = Join-Path $env:TEMP "FastOrderBuild\$OutputName"
 $NuitkaDistRoot = Join-Path $NuitkaWorkRoot "FastOrder.dist"
 $NuitkaReportPath = Join-Path $NuitkaWorkRoot "compilation-report.xml"
 $SelectedPolicy = if ($SandboxQa) { Join-Path $PackagingRoot "sandbox-qa-policy.json" } else { Join-Path $ProjectRoot "config\production.json" }
@@ -53,7 +53,7 @@ if ($InternalUnsignedCandidate -and -not $SandboxQa) {
     $DistRoot = Join-Path $OutputRoot "FastOrder.dist"
     $ReportPath = Join-Path $OutputRoot "compilation-report.xml"
     $ManifestPath = Join-Path $OutputRoot "artifact-manifest.json"
-    $NuitkaWorkRoot = Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"
+    $NuitkaWorkRoot = Join-Path $env:TEMP "FastOrderBuild\$OutputName"
     $NuitkaDistRoot = Join-Path $NuitkaWorkRoot "FastOrder.dist"
     $NuitkaReportPath = Join-Path $NuitkaWorkRoot "compilation-report.xml"
     $env:NUITKA_CACHE_DIR = Join-Path $ProjectRoot "build\nuitka-cache"
@@ -177,7 +177,7 @@ if ($Clean) {
     if ($resolvedOutput -ne $expectedOutput) { Fail "Refusing to clean an unexpected output directory." }
     if (Test-Path -LiteralPath $resolvedOutput) { Remove-Item -LiteralPath $resolvedOutput -Recurse -Force }
     $resolvedWork = [System.IO.Path]::GetFullPath($NuitkaWorkRoot)
-    $expectedWork = [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "FastOrderBuild\$OutputName"))
+    $expectedWork = [System.IO.Path]::GetFullPath((Join-Path $env:TEMP "FastOrderBuild\$OutputName"))
     if ($resolvedWork -ne $expectedWork) { Fail "Refusing to clean an unexpected Nuitka work directory." }
     if (Test-Path -LiteralPath $resolvedWork) { Remove-Item -LiteralPath $resolvedWork -Recurse -Force }
 }
