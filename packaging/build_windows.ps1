@@ -109,14 +109,18 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     if (-not (Test-Path -LiteralPath $devCmd)) { Fail "VS 2022 developer environment was not found." }
     $environmentLines = & cmd.exe /d /s /c "`"$devCmd`" -arch=x64 -host_arch=x64 >nul && set"
     if ($LASTEXITCODE -ne 0) { Fail "Unable to initialize the VS 2022 x64 toolchain." }
+    $developerPath = $null
     foreach ($line in $environmentLines) {
         $name, $value = $line -split "=", 2
-        # cmd.exe can emit both PATH (from VsDevCmd) and Path (the inherited
-        # process value). Windows treats them case-insensitively, so applying
-        # the latter would silently remove cl.exe from this PowerShell process.
-        if ($name -ceq "Path") { continue }
+        # cmd.exe may emit PATH, Path, or both. Select the value actually
+        # initialized by VsDevCmd rather than relying on casing/order.
+        if ($name -ieq "Path") {
+            if ($value -match "VC\\Tools\\MSVC") { $developerPath = $value }
+            continue
+        }
         if ($name -and $null -ne $value) { Set-Item -Path "Env:$name" -Value $value }
     }
+    if ($developerPath) { Set-Item -Path "Env:Path" -Value $developerPath }
 }
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     Fail "MSVC v143 x64 compiler was not found."
