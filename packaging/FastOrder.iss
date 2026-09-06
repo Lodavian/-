@@ -95,9 +95,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "启动 {#MyAppDisplayName}"; Wo
 [Code]
 function ParseSemanticVersion(const Value: String; var Packed: Int64): Boolean;
 var
-  Parts: TArrayOfString;
   BaseValue: String;
-  SuffixAt: Integer;
+  MajorText, MinorText, PatchText: String;
+  SuffixAt, DotAt: Integer;
   Major, Minor, Patch: Integer;
 begin
   { Accept prerelease upgrade inputs such as 0.9.9-qa while comparing the
@@ -105,12 +105,21 @@ begin
   BaseValue := Value;
   SuffixAt := Pos('-', BaseValue);
   if SuffixAt > 0 then Delete(BaseValue, SuffixAt, Length(BaseValue));
-  Parts := SplitString(BaseValue, '.');
-  Result := GetArrayLength(Parts) >= 3;
-  if not Result then Exit;
-  Major := StrToIntDef(Parts[0], -1);
-  Minor := StrToIntDef(Parts[1], -1);
-  Patch := StrToIntDef(Parts[2], -1);
+
+  DotAt := Pos('.', BaseValue);
+  if DotAt <= 1 then begin Result := False; Exit; end;
+  MajorText := Copy(BaseValue, 1, DotAt - 1);
+  Delete(BaseValue, 1, DotAt);
+
+  DotAt := Pos('.', BaseValue);
+  if DotAt <= 1 then begin Result := False; Exit; end;
+  MinorText := Copy(BaseValue, 1, DotAt - 1);
+  PatchText := Copy(BaseValue, DotAt + 1, Length(BaseValue));
+  if (PatchText = '') or (Pos('.', PatchText) > 0) then begin Result := False; Exit; end;
+
+  Major := StrToIntDef(MajorText, -1);
+  Minor := StrToIntDef(MinorText, -1);
+  Patch := StrToIntDef(PatchText, -1);
   Result := (Major >= 0) and (Minor >= 0) and (Patch >= 0);
   if Result then Packed := PackVersionComponents(Major, Minor, Patch, 0);
 end;

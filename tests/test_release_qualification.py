@@ -119,6 +119,8 @@ def test_installer_modes_are_mutually_exclusive_and_fail_closed():
     assert "DisposableVmConfirmed" in smoke
     assert "Credential Manager" not in smoke or "allow-credential-manager-unavailable" in smoke
     assert "Shortcut working directory mismatch" in smoke
+    assert "SplitString" not in iss
+    assert "ParseSemanticVersion" in iss
 
 
 def test_release_scripts_require_formal_evidence_and_signed_artifacts():
