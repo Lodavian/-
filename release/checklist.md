@@ -4,10 +4,12 @@
 
 ## Gate checklist 索引
 
+实际执行 Gate A/B 时优先使用合并后的 [10～15 分钟人工验收单](gate-ab-quick-qa.md)；原 Gate A、Gate B 文档保留为详细说明和异常排查依据。
+
 | Gate | 人工清单 | 必须满足的证据门禁 | 状态 |
 |---|---|---|---|
-| A — Credential QA | [gate-a-credential-qa.md](gate-a-credential-qa.md) | `A-CRED-001` 至 `A-CRED-011` 全部 `PASS` | `NOT_RUN` |
-| B — Sandbox QA | [gate-b-sandbox-qa.md](gate-b-sandbox-qa.md) | `B-SBX-001` 至 `B-SBX-014` 全部 `PASS` | `NOT_RUN` |
+| A — Credential QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-a-credential-qa.md) | `AB-01` 至 `AB-05` 全部 `PASS` | `NOT_RUN` |
+| B — Sandbox QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-b-sandbox-qa.md) | `AB-06` 至 `AB-12` 全部 `PASS` | `NOT_RUN` |
 | C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（待 Inno 商业许可/工具） |
 | D — signing QA | [gate-d-signing-qa.md](gate-d-signing-qa.md) | `D-SIGN-001` 至 `D-SIGN-008` 全部 `PASS` | `BLOCKED`（待合法 Publisher/正式证书） |
 

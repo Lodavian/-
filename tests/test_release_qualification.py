@@ -129,3 +129,15 @@ def test_gate_checklists_cover_required_release_qualification_scenarios():
     gate_c = (RELEASE / "gate-c-installer-qa.md").read_text(encoding="utf-8")
     for phrase in ("FastOrder-Setup-1.0.0-rc1.exe", "NotSigned", "0.9.9-qa", "Windows 重启"):
         assert phrase in gate_c
+
+
+def test_gate_ab_quick_checklist_is_complete_and_live_safe():
+    quick = (RELEASE / "gate-ab-quick-qa.md").read_text(encoding="utf-8")
+    for index in range(1, 13):
+        assert f"AB-{index:02d}" in quick
+    for phrase in (
+        "以后自动连接", "Windows Credential Manager", "忘记此账户",
+        "scan_release_credentials.py", "AAPL → MSFT → AAPL", "快速双击",
+        "UNKNOWN", "MARKET_READY=false", "ORDER_EVENTS_READY=false", "严禁 LIVE",
+    ):
+        assert phrase in quick
