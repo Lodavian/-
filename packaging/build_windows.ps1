@@ -156,7 +156,8 @@ $env:CXX = $ResolvedCl
 # Nuitka emits UTF-8 C headers for the Chinese PE product metadata. Force the
 # MSVC source/execution character sets so localized names compile losslessly.
 $env:CL = (([string]$env:CL + " /utf-8").Trim())
-$PytestBaseTemp = Join-Path $ProjectRoot "build\pytest-$OutputName"
+$PytestBaseTemp = Join-Path $env:TEMP "FastOrderBuildTests\$OutputName-$PID"
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $PytestBaseTemp) | Out-Null
 & $PythonPath -m pytest -q --basetemp $PytestBaseTemp
 if ($LASTEXITCODE -ne 0) { Fail "Source test suite failed." }
 & $PythonPath -m compileall -q (Join-Path $ProjectRoot "app.py") (Join-Path $ProjectRoot "FastOrder.py") (Join-Path $ProjectRoot "fast_order")

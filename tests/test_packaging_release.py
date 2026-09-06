@@ -42,3 +42,9 @@ def test_release_checklist_requires_sandbox_and_lifecycle_proofs():
     checklist = (ROOT / "release" / "checklist.md").read_text(encoding="utf-8")
     for phrase in ("Sandbox", "reinstall", "upgrade", "uninstall", "SHA256", "Authenticode"):
         assert phrase in checklist
+
+
+def test_windows_build_uses_per_process_external_pytest_temp():
+    build = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
+    assert 'Join-Path $env:TEMP "FastOrderBuildTests\\$OutputName-$PID"' in build
+    assert "New-Item -ItemType Directory -Force -Path (Split-Path -Parent $PytestBaseTemp)" in build
