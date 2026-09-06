@@ -1,6 +1,6 @@
 # FastOrder 1.0.0 Windows Release Qualification
 
-本页是发布总门禁；人工步骤和证据要求分别见四份 Gate checklist。所有 Gate 都禁止提交 LIVE 订单。允许的订单验证仅为 Gate B 中四个彼此隔离、任一时刻最多一笔活动订单的 Sandbox `LIMIT`/`DAY` 场景，并且必须逐笔撤单/对账闭环。
+本页是发布总门禁。V1.0 经项目负责人批准，不再把 Sandbox QA 作为正式门禁；Gate B 必须记录为 `WAIVED`，并以脱敏的 `LIVE_MANUAL_QA=PASS` 负责人证明替代，严禁伪造 Sandbox PASS。
 
 ## Gate checklist 索引
 
@@ -9,7 +9,7 @@
 | Gate | 人工清单 | 必须满足的证据门禁 | 状态 |
 |---|---|---|---|
 | A — Credential QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-a-credential-qa.md) | `AB-01` 至 `AB-05` 全部 `PASS` | `NOT_RUN` |
-| B — Sandbox QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-b-sandbox-qa.md) | `AB-06` 至 `AB-12` 全部 `PASS` | `NOT_RUN` |
+| B — Sandbox QA | [负责人豁免；原详细说明保留](gate-b-sandbox-qa.md) | `WAIVED` + `sandboxQaWaiver=APPROVED` + `liveManualQa=PASS` | `WAIVED` |
 | C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（待有效 Gate B 证据） |
 | D — signing QA | [gate-d-signing-qa.md](gate-d-signing-qa.md) | `D-SIGN-001` 至 `D-SIGN-008` 全部 `PASS` | `BLOCKED`（待合法 Publisher/正式证书） |
 

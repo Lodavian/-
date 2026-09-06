@@ -4,7 +4,7 @@
   "title": "FastOrder release qualification evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "product", "releaseClass", "candidate", "qaEnvironment", "gates", "credentialScan", "signature", "redactionVerified", "approver", "notes"],
+  "required": ["schemaVersion", "product", "releaseClass", "candidate", "qaEnvironment", "gates", "sandboxQaWaiver", "liveManualQa", "credentialScan", "signature", "redactionVerified", "approver", "notes"],
   "properties": {
     "schemaVersion": {"const": 2},
     "product": {"const": "FastOrder"},
@@ -27,6 +27,8 @@
       "properties": {"windowsVersion": {"type": "string"}, "userType": {"type": "string"}, "python": {"type": "string"}, "nuitka": {"type": "string"}, "msvc": {"type": "string"}, "windowsSdk": {"type": "string"}, "innoSetup": {"type": "string"}}
     },
     "gates": {"type": "object", "additionalProperties": false, "required": ["A", "B", "C", "D"], "properties": {"A": {"$ref": "#/$defs/gate"}, "B": {"$ref": "#/$defs/gate"}, "C": {"$ref": "#/$defs/gate"}, "D": {"$ref": "#/$defs/gate"}}},
+    "sandboxQaWaiver": {"$ref": "#/$defs/waiver"},
+    "liveManualQa": {"$ref": "#/$defs/gate"},
     "credentialScan": {"$ref": "#/$defs/credentialScan"}, "signature": {"$ref": "#/$defs/signature"},
     "redactionVerified": {"type": "boolean"}, "approver": {"type": "string"}, "notes": {"type": "string"}
   },
@@ -37,8 +39,9 @@
     "gate": {
       "type": "object", "additionalProperties": false,
       "required": ["status", "tester", "reviewer", "startedAtUtc", "completedAtUtc", "evidenceRef", "redactionVerified", "blocker", "notes"],
-      "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}, "tester": {"type": "string"}, "reviewer": {"type": "string"}, "startedAtUtc": {"type": "string"}, "completedAtUtc": {"type": "string"}, "evidenceRef": {"type": "array", "items": {"$ref": "#/$defs/evidenceRef"}}, "redactionVerified": {"type": "boolean"}, "blocker": {"type": "string"}, "notes": {"type": "string"}}
+      "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN", "WAIVED"]}, "tester": {"type": "string"}, "reviewer": {"type": "string"}, "startedAtUtc": {"type": "string"}, "completedAtUtc": {"type": "string"}, "evidenceRef": {"type": "array", "items": {"$ref": "#/$defs/evidenceRef"}}, "redactionVerified": {"type": "boolean"}, "blocker": {"type": "string"}, "notes": {"type": "string"}}
     },
+    "waiver": {"type": "object", "additionalProperties": false, "required": ["status", "approvedBy", "approvedAtUtc", "reason"], "properties": {"status": {"enum": ["NOT_RUN", "APPROVED"]}, "approvedBy": {"type": "string"}, "approvedAtUtc": {"type": "string"}, "reason": {"type": "string"}}},
     "credentialScan": {"type": "object", "additionalProperties": false, "required": ["status", "findings", "scannedRoots", "completedAtUtc", "evidenceSha256"], "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}, "findings": {"type": "array", "items": {"type": "string"}}, "scannedRoots": {"type": "array", "items": {"type": "string"}}, "completedAtUtc": {"type": "string"}, "evidenceSha256": {"type": "string"}}},
     "signature": {"type": "object", "additionalProperties": false, "required": ["status", "timestampStatus", "timestampUrl", "signerSubject", "signerThumbprint"], "properties": {"status": {"type": "string"}, "timestampStatus": {"type": "string"}, "timestampUrl": {"type": "string"}, "signerSubject": {"type": "string"}, "signerThumbprint": {"type": "string"}}}
   }

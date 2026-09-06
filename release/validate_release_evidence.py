@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 GATES = ("A", "B", "C", "D")
-STATUSES = {"PASS", "FAIL", "BLOCKED", "NOT_RUN"}
+STATUSES = {"PASS", "FAIL", "BLOCKED", "NOT_RUN", "WAIVED"}
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 GIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 THUMBPRINT_RE = re.compile(r"^[0-9a-fA-F]{40,64}$")
@@ -120,14 +120,16 @@ def validate_evidence(evidence: dict[str, Any], *, require_formal: bool = False)
         status = item.get("status")
         if status not in STATUSES:
             errors.append(f"Gate {gate} has an invalid status: {status!r}")
-        elif require_formal and status != "PASS":
+        if status == "WAIVED" and gate != "B":
+            errors.append(f"Only Gate B may be WAIVED; Gate {gate} is invalid")
+        elif require_formal and gate != "B" and status != "PASS":
             errors.append(f"Gate {gate} is not PASS: {status}")
         required_gate_keys = {"status", "tester", "reviewer", "startedAtUtc", "completedAtUtc", "evidenceRef", "redactionVerified", "blocker", "notes"}
         if set(item) != required_gate_keys or not all(isinstance(item.get(key), str) for key in ("tester", "reviewer", "startedAtUtc", "completedAtUtc", "blocker", "notes")) or not isinstance(item.get("redactionVerified"), bool) or not isinstance(item.get("evidenceRef"), list):
             errors.append(f"Gate {gate} has an invalid evidence shape")
         elif any(not isinstance(ref, dict) or set(ref) != {"stepId", "path", "sha256"} or not all(isinstance(ref.get(key), str) for key in ("stepId", "path", "sha256")) for ref in item["evidenceRef"]):
             errors.append(f"Gate {gate} has an invalid evidence reference shape")
-        if require_formal:
+        if require_formal and status == "PASS":
             for key in ("tester", "reviewer"):
                 if not str(item.get(key, "")).strip():
                     errors.append(f"Gate {gate} {key} is required")
@@ -145,6 +147,28 @@ def validate_evidence(evidence: dict[str, Any], *, require_formal: bool = False)
                 errors.append(f"Gate {gate} redactionVerified must be true")
             if str(item.get("blocker", "")).strip():
                 errors.append(f"Gate {gate} still records a blocker")
+
+    waiver = evidence.get("sandboxQaWaiver")
+    live_qa = evidence.get("liveManualQa")
+    gate_b_status = gates.get("B", {}).get("status") if isinstance(gates.get("B"), dict) else None
+    if gate_b_status == "WAIVED":
+        if not isinstance(waiver, dict) or waiver.get("status") != "APPROVED" or not str(waiver.get("approvedBy", "")).strip() or not _is_iso_utc(waiver.get("approvedAtUtc")) or not str(waiver.get("reason", "")).strip():
+            errors.append("WAIVED Gate B requires an approved, dated owner waiver")
+        if not isinstance(live_qa, dict) or live_qa.get("status") != "PASS":
+            errors.append("WAIVED Gate B requires liveManualQa=PASS")
+    elif require_formal and gate_b_status != "PASS":
+        errors.append(f"Gate B is neither PASS nor an approved WAIVED replacement: {gate_b_status}")
+    if not isinstance(waiver, dict) or set(waiver) != {"status", "approvedBy", "approvedAtUtc", "reason"}:
+        errors.append("sandboxQaWaiver has an invalid shape")
+    if not isinstance(live_qa, dict):
+        errors.append("liveManualQa evidence is missing")
+    else:
+        live_keys = {"status", "tester", "reviewer", "startedAtUtc", "completedAtUtc", "evidenceRef", "redactionVerified", "blocker", "notes"}
+        if set(live_qa) != live_keys or live_qa.get("status") not in STATUSES:
+            errors.append("liveManualQa has an invalid shape")
+        if require_formal and gate_b_status == "WAIVED":
+            if not all(str(live_qa.get(key, "")).strip() for key in ("tester", "reviewer")) or not _is_iso_utc(live_qa.get("startedAtUtc")) or not _is_iso_utc(live_qa.get("completedAtUtc")) or not live_qa.get("evidenceRef") or live_qa.get("redactionVerified") is not True or str(live_qa.get("blocker", "")).strip():
+                errors.append("formal liveManualQa replacement evidence is incomplete")
 
     scan = evidence.get("credentialScan")
     if not isinstance(scan, dict):

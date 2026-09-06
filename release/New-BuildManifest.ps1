@@ -31,7 +31,11 @@ foreach ($gate in "A", "B", "C", "D") {
     $gateEvidence = $evidence.gates.PSObject.Properties[$gate].Value
     if (-not $gateEvidence) { throw "Release evidence gate is missing: Gate $gate" }
     if ($gateEvidence.status -eq "BLOCKED") { throw "Release evidence is BLOCKED: Gate $gate" }
-    if ($gateEvidence.status -ne "PASS") { throw "Release evidence gate is not PASS: Gate $gate" }
+    if ($gate -eq "B" -and $gateEvidence.status -eq "WAIVED") {
+        if ($evidence.sandboxQaWaiver.status -ne "APPROVED" -or $evidence.liveManualQa.status -ne "PASS") { throw "Gate B waiver replacement evidence is incomplete." }
+    } elseif ($gateEvidence.status -ne "PASS") {
+        throw "Release evidence gate is not PASS: Gate $gate"
+    }
 }
 if (-not $evidence.credentialScan -or $evidence.credentialScan.status -ne "PASS" -or @($evidence.credentialScan.findings).Count -ne 0) {
     throw "A PASS read-only credential scan with no findings is required."

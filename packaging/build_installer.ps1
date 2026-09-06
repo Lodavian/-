@@ -36,12 +36,17 @@ $evidenceValidator = Join-Path $PSScriptRoot "..\release\validate_release_eviden
 & $PythonPath $evidenceValidator $evidencePath
 if ($LASTEXITCODE -ne 0) { throw "Release qualification evidence is invalid." }
 $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
-$requiredPriorGates = if ($mode -eq "InternalUnsignedRc") { @("A", "B") } else { @("A", "B", "C") }
+$requiredPriorGates = if ($mode -eq "InternalUnsignedRc") { @("A") } else { @("A", "C") }
 foreach ($gate in $requiredPriorGates) {
     $gateEvidence = $evidence.gates.PSObject.Properties[$gate].Value
     if ($gateEvidence.status -ne "PASS") {
         throw "Gate $gate must PASS before the $mode installer build."
     }
+}
+$gateB = $evidence.gates.B.status
+$validGateBReplacement = $gateB -eq "WAIVED" -and $evidence.sandboxQaWaiver.status -eq "APPROVED" -and $evidence.liveManualQa.status -eq "PASS"
+if ($gateB -ne "PASS" -and -not $validGateBReplacement) {
+    throw "Gate B must PASS or have an approved owner waiver with liveManualQa=PASS."
 }
 
 if ($IsccPath) {

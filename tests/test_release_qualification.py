@@ -44,6 +44,14 @@ def _formal_evidence():
     return value
 
 
+def _waive_sandbox(evidence):
+    evidence["gates"]["B"]["status"] = "WAIVED"
+    evidence["sandboxQaWaiver"] = {"status": "APPROVED", "approvedBy": "release owner", "approvedAtUtc": "2026-09-06T01:00:00Z", "reason": "V1.0 owner decision"}
+    evidence["liveManualQa"] = copy.deepcopy(evidence["gates"]["A"])
+    evidence["liveManualQa"]["status"] = "PASS"
+    return evidence
+
+
 def test_evidence_template_is_fail_closed_and_freezes_ui():
     evidence = json.loads((RELEASE / "evidence-template.json").read_text(encoding="utf-8"))
     assert evidence["schemaVersion"] == 2
@@ -70,6 +78,11 @@ def test_formal_evidence_requires_all_release_gates_and_identity():
         invalid = copy.deepcopy(evidence)
         mutate(invalid)
         assert any(expected in error for error in validator.validate_evidence(invalid, require_formal=True))
+
+    waived = _waive_sandbox(copy.deepcopy(evidence))
+    assert validator.validate_evidence(waived, require_formal=True) == []
+    waived["liveManualQa"]["status"] = "NOT_RUN"
+    assert any("liveManualQa" in error for error in validator.validate_evidence(waived, require_formal=True))
 
 
 def test_credential_scan_exact_values_is_read_only_and_redacted(tmp_path):

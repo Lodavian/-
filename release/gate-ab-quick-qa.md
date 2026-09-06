@@ -1,6 +1,6 @@
 # Gate A/B — 10～15 分钟人工验收单
 
-用途：一张表完成 Windows 凭据安全和真实 Broker Sandbox 主链路验收。只使用 Sandbox QA EXE 与 Sandbox 账户，严禁 LIVE 账户和 LIVE 订单。
+历史用途：一张表完成 Windows 凭据安全和 Broker Sandbox 主链路验收。V1.0 已由项目负责人取消 Sandbox 正式门禁；当前仅 `AB-01～AB-05` 继续作为 Gate A，`AB-06～AB-12` 保留为未来可选回归，不得据此伪造本版本 Sandbox PASS。发布自动化严禁 LIVE 下单。
 
 > 预计人工操作 10～15 分钟；行情、订单事件及受控断网的传播等待不计入操作时间。任何秘密泄漏、重复订单、自动重发或 LIVE 请求都立即判定 `FAIL`。外部条件无法验证则记 `BLOCKED`，不得勾选代替。
 
@@ -57,7 +57,7 @@ build\windows-x64-sandbox-qa\FastOrder.dist
 
 ## Gate 结论
 
-- 所有 AB-01～AB-12 为 `PASS`：Gate A=`PASS`，Gate B=`PASS`。
+- AB-01～AB-05 为 `PASS`：Gate A=`PASS`。Gate B 按 V1.0 负责人决定记录 `WAIVED`，并另附 `LIVE_MANUAL_QA=PASS`。
 - 任一步 `FAIL`：Gate A/B 至少一个为 `FAIL`，停止后续 Gate。
 - 任一步 `BLOCKED`：对应 Gate 保持 `BLOCKED`，不得进入 Gate C。
 
