@@ -13,7 +13,7 @@ Gate C 只有所有必需步骤为 `PASS`，且 `installerQa` 证据为 `PASS`�
 - [ ] Gate A、Gate B 已实际 `PASS`；安装器测试使用恢复到干净快照的专用一次性 VM，不允许审批绕过前置 Gate。
 - [ ] 已有完整 standalone staging tree；Gate C 的 `InternalUnsignedRc` 允许 EXE/安装器未签名，但必须明确标记内部候选，且 staging tree 不含源码、秘密或运行数据。
 - [ ] 使用 x64 Windows 10 22H2 或更新版本；准备管理员安装凭据和普通非管理员运行账号。
-- [ ] 已确认 Inno Setup 7.1.0 x64、固定 AppId `{5E1CC7C3-2A6F-4E71-9C2A-6F1BBE4D6D0A}`、目标 `Program Files\FastOrder` 和商用许可证记录。
+- [ ] 已确认 Inno Setup 7.1.0 x64、固定 AppId `{5E1CC7C3-2A6F-4E71-9C2A-6F1BBE4D6D0A}` 和目标 `Program Files\FastOrder`。本 Gate 只允许 `UNSIGNED_INTERNAL_RC`；商业许可最迟必须在 Gate D 正式生产构建前购买并记录。
 - [ ] 对 `%LOCALAPPDATA%\FastOrder` 和 `极速下单.WebullOpenAPI` 建立仅含文件名/条目名的受保护前状态；不导出原始用户数据。
 
 ## 步骤

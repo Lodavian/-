@@ -31,17 +31,17 @@ credential environment variables.
 
 ## Installer lanes
 
-Both installer lanes require an explicit commercial Inno Setup license
-confirmation.  The internal lane is unsigned and is only for release-candidate
-QA; it has a fixed `FastOrder Internal Candidate` publisher and always emits
+The internal lane may be used only to make an unsigned, non-production
+release-candidate for readiness testing before the commercial license is
+purchased. The formal production lane requires explicit commercial Inno Setup
+license confirmation. The internal lane has a fixed `FastOrder Internal Candidate` publisher and always emits
 `FastOrder-Setup-1.0.0-rc1.exe`:
 
 ```powershell
 ./packaging/build_installer.ps1 `
   -StagingDir ./build/windows-x64-internal/FastOrder.dist `
   -EvidenceJson ./release/evidence-rc1.json `
-  -InternalUnsignedRc `
-  -CommercialLicenseConfirmed
+  -InternalUnsignedRc
 ```
 
 After the standalone candidate passes automated and Broker Sandbox QA, sign

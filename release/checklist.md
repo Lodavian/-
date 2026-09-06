@@ -10,7 +10,7 @@
 |---|---|---|---|
 | A — Credential QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-a-credential-qa.md) | `AB-01` 至 `AB-05` 全部 `PASS` | `NOT_RUN` |
 | B — Sandbox QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-b-sandbox-qa.md) | `AB-06` 至 `AB-12` 全部 `PASS` | `NOT_RUN` |
-| C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（待 Inno 商业许可/工具） |
+| C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（待有效 Gate B 证据） |
 | D — signing QA | [gate-d-signing-qa.md](gate-d-signing-qa.md) | `D-SIGN-001` 至 `D-SIGN-008` 全部 `PASS` | `BLOCKED`（待合法 Publisher/正式证书） |
 
 ## 自动化与正式发布前置项
@@ -20,7 +20,7 @@
 - [ ] 在 x64 Windows 10 22H2 或更新版本，用锁定的 Python/依赖和预置 wheelhouse 完成正式构建；`sourceTests=PASS`。
 - [ ] standalone staging tree 含 `FastOrder.exe`、静态资源、配置、图标和必需运行时数据；不含 `.py`、`.env`、`runtime`、`logs`、tokens、数据库、测试文件、秘密或开发机绝对路径；`packagedSmoke=PASS`。
 - [ ] 正式制品嵌入 LIVE fail-closed 生产策略；Sandbox QA 始终使用独立构建目录和 `packaging/sandbox-qa-policy.json`，不能混用。
-- [ ] Inno Setup 7.1 x64 编译成功，稳定 AppId 和 `Program Files\FastOrder` 目标已核对，并保存有效商用许可证记录。
+- [ ] Inno Setup 7.1 x64 编译成功，稳定 AppId 和 `Program Files\FastOrder` 目标已核对；正式生产安装器构建前保存有效商业许可记录。
 - [ ] `Write-SHA256.ps1`、`New-BuildManifest.ps1` 和独立 hash 校验完成；manifest 记录源 commit/tree、输入 hash、artifact hash、签名和所有 Gate 证据。
 - [ ] 第二人批准四个 Gate、manifest、Sandbox broker-side 连接/撤单证据、签名输出和最终发布制品。
 

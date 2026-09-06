@@ -98,6 +98,8 @@ def test_installer_modes_are_mutually_exclusive_and_fail_closed():
     assert "SignedUninstaller=no" in iss and "SignedUninstaller=yes" in iss
     assert "FastOrder-Setup-1.0.0-rc1" in iss and "FastOrder-Setup-1.0.0" in iss
     assert "CommercialLicenseConfirmed" in build
+    assert 'if ($mode -eq "FormalSigned" -and -not $CommercialLicenseConfirmed)' in build
+    assert "& $isccSource --version" in build
     for required in ("Publisher", "CertificateThumbprint", "TimestampUrl"):
         assert required in build
     assert "0.9.9-qa" in build and "installer-qa-fixtures" in build

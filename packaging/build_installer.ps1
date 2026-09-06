@@ -12,15 +12,19 @@ param(
     [string]$CertificateThumbprint,
     [Parameter(Mandatory = $true, ParameterSetName = "FormalSigned")]
     [string]$TimestampUrl,
-    [Parameter(Mandatory = $true)] [switch]$CommercialLicenseConfirmed,
+    [Parameter(Mandatory = $true, ParameterSetName = "FormalSigned")]
+    [switch]$CommercialLicenseConfirmed,
+    [string]$IsccPath,
     [string]$PythonPath = "python.exe",
     [string]$OutputDir = (Join-Path $PSScriptRoot "..\release\artifacts"),
     [string]$UpgradeFixtureOutputDir = (Join-Path $PSScriptRoot "..\build\installer-qa-fixtures")
 )
 $ErrorActionPreference = "Stop"
-if (-not $CommercialLicenseConfirmed) { throw "Commercial Inno Setup license confirmation is required." }
 
 $mode = $PSCmdlet.ParameterSetName
+if ($mode -eq "FormalSigned" -and -not $CommercialLicenseConfirmed) {
+    throw "Commercial Inno Setup license confirmation is required for a formal production installer."
+}
 if ($mode -eq "InternalUnsignedRc" -and $FormalSigned) {
     throw "InternalUnsignedRc and FormalSigned are mutually exclusive."
 }
@@ -40,10 +44,20 @@ foreach ($gate in $requiredPriorGates) {
     }
 }
 
-$iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-if (-not $iscc) { throw "Inno Setup 7.1.0 ISCC.exe not found." }
-$innoVersion = $iscc.FileVersionInfo.ProductVersion
-if ($innoVersion -notlike "7.1.0*") { throw "Inno Setup 7.1.0 is required; found $innoVersion." }
+if ($IsccPath) {
+    $isccSource = (Resolve-Path -LiteralPath $IsccPath).Path
+} else {
+    $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($iscc) {
+        $isccSource = $iscc.Source
+    } else {
+        $standardIscc = Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 7\ISCC.exe"
+        if (Test-Path -LiteralPath $standardIscc) { $isccSource = $standardIscc }
+    }
+}
+if (-not $isccSource) { throw "Inno Setup 7.1.0 ISCC.exe not found." }
+$innoVersion = (& $isccSource --version 2>&1 | Select-Object -Last 1).ToString().Trim()
+if ($LASTEXITCODE -ne 0 -or $innoVersion -ne "7.1.0") { throw "Inno Setup 7.1.0 is required; found $innoVersion." }
 $resolvedStage = (Resolve-Path -LiteralPath $StagingDir).Path
 $exe = Join-Path $resolvedStage "FastOrder.exe"
 if (-not (Test-Path -LiteralPath $exe)) { throw "Standalone FastOrder.exe not found." }
@@ -97,7 +111,7 @@ if ($mode -eq "InternalUnsignedRc") {
     $signCommand = '"' + $signtool.Source + '" sign /sha1 ' + $CertificateThumbprint + ' /fd SHA256 /tr ' + $TimestampUrl + ' /td SHA256 $f'
     $issArgs += @("/DFormalSigned", "/DMyAppPublisher=$Publisher", "/DSignToolName=fastorder-sign", "/Sfastorder-sign=$signCommand")
 }
-& $iscc.Source @issArgs (Join-Path $PSScriptRoot "FastOrder.iss")
+& $isccSource @issArgs (Join-Path $PSScriptRoot "FastOrder.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed." }
 $outputName = if ($mode -eq "InternalUnsignedRc") { "FastOrder-Setup-1.0.0-rc1.exe" } else { "FastOrder-Setup-1.0.0.exe" }
 $setup = Join-Path $OutputDir $outputName
@@ -124,7 +138,7 @@ if ($mode -eq "InternalUnsignedRc") {
         "/DMyOutputBaseFilename=FastOrder-Setup-0.9.9-qa",
         "/O$UpgradeFixtureOutputDir"
     )
-    & $iscc.Source @fixtureArgs (Join-Path $PSScriptRoot "FastOrder.iss")
+    & $isccSource @fixtureArgs (Join-Path $PSScriptRoot "FastOrder.iss")
     if ($LASTEXITCODE -ne 0) { throw "Inno Setup 0.9.9-qa lifecycle fixture build failed." }
     $fixture = Join-Path $UpgradeFixtureOutputDir "FastOrder-Setup-0.9.9-qa.exe"
     if (-not (Test-Path -LiteralPath $fixture)) { throw "Expected lifecycle fixture was not generated: $fixture" }

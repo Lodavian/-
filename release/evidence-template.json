@@ -17,8 +17,8 @@
   "gates": {
     "A": {"status": "NOT_RUN", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "", "notes": "Interactive Windows Credential QA."},
     "B": {"status": "NOT_RUN", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "", "notes": "Real Broker Sandbox QA; never LIVE orders."},
-    "C": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "Commercial Inno Setup license and installer QA are not yet available.", "notes": "Unsigned internal RC installer lifecycle QA."},
-    "D": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "No legal Publisher, production Authenticode certificate, or trusted timestamp evidence.", "notes": "Formal signing only; self-signed/test certificates are forbidden."}
+    "C": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "Valid Gate A/B evidence and installer lifecycle QA are not yet available.", "notes": "Unsigned internal RC installer lifecycle QA."},
+    "D": {"status": "BLOCKED", "tester": "", "reviewer": "", "startedAtUtc": "", "completedAtUtc": "", "evidenceRef": [], "redactionVerified": false, "blocker": "No commercial Inno Setup license record, legal Publisher, production Authenticode certificate, or trusted timestamp evidence.", "notes": "Formal signing only; self-signed/test certificates are forbidden."}
   },
   "credentialScan": {"status": "NOT_RUN", "findings": [], "scannedRoots": [], "completedAtUtc": "", "evidenceSha256": ""},
   "signature": {"status": "UNRECORDED", "timestampStatus": "UNRECORDED", "timestampUrl": "", "signerSubject": "", "signerThumbprint": ""},
