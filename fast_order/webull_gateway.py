@@ -30,6 +30,31 @@ from .utils import (
 EventSink = Callable[[dict[str, Any]], None]
 
 
+class _NoSdkFileLoggingDataStreamingMixin:
+    """Make the SDK's documented logger disable survive its async wrapper.
+
+    Webull SDK 2.0.18 exposes ``logger_enable`` on both streaming start
+    methods, but its async wrapper starts ``connect_and_loop_forever`` with
+    only the timeout argument.  The omitted flag falls back to ``True`` and
+    creates ``webull_data_streaming_sdk.log`` in the process working
+    directory.  Keep the SDK code untouched and enforce the documented
+    no-file-logger mode at the final public entry point executed by its
+    thread.
+    """
+
+    def connect_and_loop_forever(
+        self,
+        timeout: float = 1,
+        logger_enable: bool = True,
+        customer_logger: Any = None,
+    ) -> Any:
+        return super().connect_and_loop_forever(
+            timeout=timeout,
+            logger_enable=False,
+            customer_logger=None,
+        )
+
+
 class WebullGateway:
     """Small one-account, one-symbol wrapper around Webull OpenAPI SDK 2.0.18."""
 
@@ -246,12 +271,15 @@ class WebullGateway:
     def _build_streaming_client(self) -> None:
         from webull.data.data_streaming_client import DataStreamingClient
 
+        class FastOrderDataStreamingClient(_NoSdkFileLoggingDataStreamingMixin, DataStreamingClient):
+            pass
+
         self._silence_sdk_loggers()
 
         session_id = f"fast-{uuid.uuid4().hex[:16]}"
         generation = self._stream_generation + 1
         self._stream_generation = generation
-        client = DataStreamingClient(
+        client = FastOrderDataStreamingClient(
             self._app_key,
             self._app_secret,
             "hk",

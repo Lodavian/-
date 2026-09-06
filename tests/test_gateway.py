@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from fast_order.errors import BrokerRejectedError, OrderUncertainError
-from fast_order.webull_gateway import WebullGateway
+from fast_order.webull_gateway import WebullGateway, _NoSdkFileLoggingDataStreamingMixin
 from fast_order.config import Settings
 
 
@@ -30,6 +31,43 @@ def make_settings(tmp_path: Path, **overrides: object) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)
+
+
+def test_quote_client_start_disables_sdk_cwd_file_log(monkeypatch, tmp_path: Path) -> None:
+    import paho.mqtt.client as mqtt_client
+    import webull.data.internal.quotes_client as quotes_module
+
+    install_dir = tmp_path / "Program Files" / "FastOrder"
+    install_dir.mkdir(parents=True)
+    monkeypatch.chdir(install_dir)
+
+    gateway = WebullGateway(make_settings(tmp_path), lambda _event: None)
+    gateway._build_streaming_client()
+    client = gateway.streaming_client
+    assert isinstance(client, _NoSdkFileLoggingDataStreamingMixin)
+
+    monkeypatch.setattr(client, "_init_client", lambda: None)
+    monkeypatch.setattr(client, "_quotes_connect", lambda *_args: 0)
+    monkeypatch.setattr(mqtt_client.Client, "loop_forever", lambda *_args, **_kwargs: 0)
+
+    def forbid_file_handler(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError("SDK attempted to create a working-directory log")
+
+    monkeypatch.setattr(quotes_module, "TimedRotatingFileHandler", forbid_file_handler)
+    thread_failures: list[BaseException] = []
+    monkeypatch.setattr(threading, "excepthook", lambda args: thread_failures.append(args.exc_value))
+
+    client.connect_and_loop_start(0.01, False, None)
+    client.loop_wait()
+
+    assert thread_failures == []
+    assert not (install_dir / "webull_data_streaming_sdk.log").exists()
+    assert list(install_dir.iterdir()) == []
+
+    for sock_name in ("_sockpairR", "_sockpairW"):
+        sock = getattr(client, sock_name, None)
+        if sock is not None:
+            sock.close()
 
 
 @pytest.mark.asyncio
