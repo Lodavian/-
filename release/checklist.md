@@ -8,9 +8,9 @@
 
 | Gate | 人工清单 | 必须满足的证据门禁 | 状态 |
 |---|---|---|---|
-| A — Credential QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-a-credential-qa.md) | `AB-01` 至 `AB-05` 全部 `PASS` | `NOT_RUN` |
+| A — Credential QA | [Gate A/B 快速单](gate-ab-quick-qa.md)；[详细说明](gate-a-credential-qa.md) | `AB-01` 至 `AB-05` 全部 `PASS` | `PASS`（负责人已完成人工验收并提交脱敏证明） |
 | B — Sandbox QA | [负责人豁免；原详细说明保留](gate-b-sandbox-qa.md) | `WAIVED` + `sandboxQaWaiver=APPROVED` + `liveManualQa=PASS` | `WAIVED` |
-| C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（首次 Win11 安装发现 SDK 向 Program Files 写日志；修复后待干净机复测） |
+| C — installer QA | [gate-c-installer-qa.md](gate-c-installer-qa.md) | `C-INS-001` 至 `C-INS-011` 全部 `PASS` | `BLOCKED`（SDK 日志 Blocker 已通过干净 Win11 复测关闭；仍待完整 repair/升级/卸载及第二人复核证据） |
 | D — signing QA | [gate-d-signing-qa.md](gate-d-signing-qa.md) | `D-SIGN-001` 至 `D-SIGN-008` 全部 `PASS` | `BLOCKED`（待合法 Publisher/正式证书） |
 
 ## 自动化与正式发布前置项

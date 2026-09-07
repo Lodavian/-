@@ -2,7 +2,7 @@
 
 - 发现日期：2026-09-07（Asia/Hong_Kong）
 - 发现环境：全新 Windows 11，安装版 FastOrder，普通用户
-- 状态：`BLOCKED — FIX IMPLEMENTED, CLEAN-MACHINE RETEST REQUIRED`
+- 状态：`CLOSED — CLEAN-MACHINE RETEST PASSED`
 - 影响：行情线程无法启动，账户连接/重启恢复失败；正式发布 `NO-GO`
 
 ## 现场现象
@@ -41,3 +41,9 @@ FastOrder 在唯一 Gateway 内使用一个薄的 DataStreamingClient 子类适�
 - 行情客户端可启动；`/livez` 正常，未满足交易条件时 `/readyz` 继续 fail-closed。
 - 全新 Windows 11 测试机卸载旧 RC、安装新 RC、连接、关闭、再次启动后行情恢复。
 - 更新 Gate C 脱敏 evidence；在完成上述干净机复测前不得标记 Gate C PASS。
+
+## 关闭记录
+
+- 2026-09-07（Asia/Hong_Kong），项目负责人确认修复后的 RC1 已在干净 Windows 11 电脑上以普通用户完成复测并通过。
+- 复测覆盖账户连接、关闭后重新打开、行情恢复、Program Files 不产生 SDK 日志，以及运行日志仅进入用户数据目录。
+- 本 Release Blocker 已关闭。Gate C 的最终状态仍由完整 `C-INS-001` 至 `C-INS-011` 安装生命周期证据独立决定。
