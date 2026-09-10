@@ -14,13 +14,35 @@
 
 脚本会在本项目内创建 `.venv`、安装固定依赖并打开 `http://127.0.0.1:8765`。首次打开后点击“绑定账户”，输入 Webull OpenAPI App Key 和 App Secret；不要输入 Webull 手机号或交易密码。
 
-凭据验证成功后，单账户会自动选择，多账户必须从脱敏候选中手动选择。勾选“记住凭据”时，App Key、App Secret 和完整 Account ID 只写入 Windows Credential Manager；`runtime/account_profile.json` 只保存脱敏显示信息。未勾选时凭据只在本次运行的内存中使用。
+凭据验证成功后，单账户会自动选择，多账户必须从脱敏候选中手动选择。勾选“记住凭据”时，App Key、App Secret 和完整 Account ID 只写入系统安全凭据存储（Windows Credential Manager 或 macOS 登录钥匙串）；`runtime/account_profile.json` 只保存脱敏显示信息。未勾选时凭据只在本次运行的内存中使用。
 
 `.env` 继续作为开发者和高级部署后备。页面安全凭据优先于 `.env`，但本轮仍由 `.env` 管理 Sandbox/LIVE 环境以及数量、金额等风控上限。
 
-使用 `.env` 后备且凭据关联多个账户时，可设置掩码形式的 `FAST_ORDER_WEBULL_ACCOUNT_HINT`；也可设置完整 `FAST_ORDER_WEBULL_ACCOUNT_ID`。Webull SDK 访问令牌仍保存在 `runtime/webull_tokens/`，目录会在连接前收紧为当前 Windows 用户权限。SDK 要求该令牌采用其原生文件格式，因此它是权限保护而非加密存储。
+使用 `.env` 后备且凭据关联多个账户时，可设置掩码形式的 `FAST_ORDER_WEBULL_ACCOUNT_HINT`；也可设置完整 `FAST_ORDER_WEBULL_ACCOUNT_ID`。Webull SDK 访问令牌仍保存在独立的用户数据目录中，Windows 使用当前用户 ACL，macOS 使用 `0700/0600` 权限。SDK 要求该令牌采用其原生文件格式，因此它是权限保护而非加密存储。
 
-“断开连接”会保留安全凭据和 SDK 会话；“忘记此账户”会先禁用交易并停止行情/订单事件，再删除 Credential Manager 条目、脱敏元数据和 SDK token。
+“断开连接”会保留安全凭据和 SDK 会话；“忘记此账户”会先禁用交易并停止行情/订单事件，再删除系统安全凭据条目、脱敏元数据和 SDK token。
+
+## macOS Apple Silicon 内部版
+
+macOS 15+ 的 Apple Silicon Mac 使用原生 arm64 Python 3.11.9 和 Xcode Command Line Tools 构建：
+
+```bash
+bash packaging/build_macos.sh --clean
+```
+
+产物为 `build/macos-arm64/FastOrder.app`。双击后会打开 Terminal 和默认浏览器，在 Terminal 按 `Ctrl+C` 安全退出。用户数据只写入 `~/Library/Application Support/FastOrder/`；首次使用需要在 Mac 上重新绑定账户，不迁移 Windows 凭据、SDK token 或订单账本。此构建为 ad-hoc 签名的本机内部版，不用于外部分发。详细要求见 `packaging/README-macOS.md`。
+
+## 第一阶段机构服务器与 Android
+
+新增内容与原桌面入口完全分离：`fast_order_server/` 是 Linux 机构交易控制终端，`server_admin/` 是管理员控制台，`deploy/server/` 提供香港单机 Docker Compose 部署，`mobile/fast_order_mobile/` 是 Flutter Android 客户端。服务器按 JWT 用户、已批准设备和 opaque `accountRef` 路由账户，真实券商账户 ID 与机构凭据不会返回手机。
+
+部署前阅读 `deploy/server/README.md`，并在目标 Linux 主机固定 Casdoor 镜像 digest、生成 root-only secrets、配置三个 HTTPS 域名。服务每次重启都会把全局交易开关恢复为关闭；第一次 LIVE 单必须由管理员手工以最低数量完成下单、改单、撤单和重启对账验收。Android 构建和正式私钥要求见 `mobile/fast_order_mobile/README.md`。
+
+本地控制热路径基准可运行：
+
+```powershell
+.\.venv\Scripts\python.exe packaging\benchmark_server_control.py --iterations 10000
+```
 
 ## 实盘门禁与安全维护
 

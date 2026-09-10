@@ -525,7 +525,7 @@ class FastOrderApplication:
             except CredentialStoreError:
                 self._session_credentials = (app_key, app_secret, account_id)
                 self.service.set_credential_state("SESSION_ONLY")
-                warning = "账户已连接，但 Windows Credential Manager 不可用；凭据仅本次运行有效"
+                warning = "账户已连接，但系统安全凭据存储不可用；凭据仅本次运行有效"
         else:
             self._session_credentials = (app_key, app_secret, account_id)
             self.service.set_credential_state("SESSION_ONLY")

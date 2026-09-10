@@ -1,0 +1,13 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; background:#09111f; color:#eef4ff; }
+body { max-width:1100px; margin:auto; padding:24px; }
+header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+main { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+section { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); border-radius:18px; padding:18px; }
+form { display:grid; gap:10px; margin:12px 0; }
+input,select,button { min-height:44px; border-radius:10px; border:1px solid #52627b; padding:0 12px; font:inherit; }
+input,select { background:#101c2f; color:#fff; }
+button { background:#2e70ff; color:#fff; cursor:pointer; }
+button.danger { background:#b42335; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+td,th { text-align:left; border-bottom:1px solid #34435b; padding:7px; word-break:break-word; }
+output { display:block; min-height:24px; margin-top:16px; color:#bcd0f5; }

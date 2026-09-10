@@ -17,6 +17,12 @@ from aiohttp import web
 from .config import Settings, load_production_settings, load_settings
 from .credentials import harden_windows_acl
 from .paths import AppPaths, PathMigrationError, PathResolutionError
+from .platform_security import (
+    PlatformSecurityError,
+    activate_private_umask,
+    ensure_macos_directory,
+    validate_macos_tree,
+)
 from .single_instance import SingleInstance, existing_instance_is_alive
 
 
@@ -24,6 +30,15 @@ PRODUCT_VERSION = "1.0.0"
 
 
 def resource_root() -> Path:
+    executable = Path(sys.executable).resolve()
+    if (
+        sys.platform == "darwin"
+        and executable.parent.name == "MacOS"
+        and executable.parent.parent.name == "Contents"
+    ):
+        resources = executable.parent.parent / "Resources"
+        if resources.is_dir():
+            return resources.resolve()
     compiled = globals().get("__compiled__")
     if compiled is not None and getattr(compiled, "standalone", False):
         # In Nuitka standalone mode sys.executable is the final EXE inside the
@@ -61,8 +76,11 @@ def configure_production_logging(logs_dir: Path) -> None:
 def prepare_writable_paths(paths: AppPaths, *, legacy_root: Path) -> None:
     try:
         paths.ensure_directories()
-        paths.migrate_legacy(legacy_root)
-    except (OSError, PathMigrationError) as exc:
+        if sys.platform != "darwin":
+            paths.migrate_legacy(legacy_root)
+        else:
+            validate_macos_tree(paths.data_root)
+    except (OSError, PathMigrationError, PlatformSecurityError) as exc:
         raise RuntimeError(f"用户数据目录初始化失败: {exc}") from exc
     for path in (paths.data_root, paths.runtime_root, paths.broker_tokens, paths.logs):
         if path.exists() and not harden_windows_acl(path):
@@ -125,6 +143,13 @@ async def serve(settings: Settings, *, no_browser: bool) -> int:
         ) from exc
 
     application = FastOrderApplication(settings, static_root=settings.app_paths.static_dir)
+    if sys.platform == "darwin":
+        try:
+            validate_macos_tree(settings.data_root)
+        except PlatformSecurityError as exc:
+            await application.service.close()
+            listener.close()
+            raise RuntimeError(f"用户数据权限校验失败: {exc}") from exc
     runner = web.AppRunner(application.app, access_log=None)
     try:
         await runner.setup()
@@ -157,7 +182,12 @@ async def serve(settings: Settings, *, no_browser: bool) -> int:
 
 def _run(settings: Settings, paths: AppPaths, *, no_browser: bool, legacy_root: Path) -> None:
     url = f"http://127.0.0.1:{settings.port}/"
-    with SingleInstance.acquire() as instance:
+    try:
+        ensure_macos_directory(paths.data_root)
+    except PlatformSecurityError as exc:
+        raise RuntimeError(f"用户数据目录初始化失败: {exc}") from exc
+    lock_path = paths.data_root / ".fastorder.lock" if sys.platform == "darwin" else None
+    with SingleInstance.acquire(lock_path) as instance:
         if instance.already_running:
             if existing_instance_is_alive(settings.port):
                 if not no_browser:
@@ -172,6 +202,7 @@ def _run(settings: Settings, paths: AppPaths, *, no_browser: bool, legacy_root: 
 
 def development_main(source_root: Path, argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    activate_private_umask()
     try:
         settings = load_settings(source_root)
         _run(
@@ -187,6 +218,7 @@ def development_main(source_root: Path, argv: list[str] | None = None) -> None:
 
 def production_main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    activate_private_umask()
     root = resource_root()
     try:
         paths = AppPaths.resolve(root, production=True)

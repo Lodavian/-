@@ -1,0 +1,47 @@
+{
+  email {$ACME_EMAIL}
+  servers {
+    protocols h1 h2
+  }
+}
+
+{$API_DOMAIN} {
+  encode zstd gzip
+  @api path /v1/* /livez /readyz
+  handle @api {
+    reverse_proxy fastorder:8080
+  }
+  respond 404
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+  }
+}
+
+{$AUTH_DOMAIN} {
+  @blocked path /api/upload-resource*
+  handle @blocked {
+    respond 404
+  }
+  handle {
+    reverse_proxy casdoor:8000
+  }
+  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+
+{$ADMIN_DOMAIN} {
+  @root path /
+  redir @root /admin/ 302
+  @admin path /admin/* /admin
+  handle @admin {
+    reverse_proxy fastorder:8080
+  }
+  respond 404
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Frame-Options DENY
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+  }
+}

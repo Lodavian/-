@@ -68,3 +68,15 @@ def test_artifact_audit_rejects_developer_absolute_path_in_binary(tmp_path):
     )
     errors, _ = audit_artifact(dist, PACKAGING / "artifact-policy.json", None)
     assert any("开发机绝对路径" in error for error in errors)
+
+
+def test_macos_build_contract_is_arm64_private_and_keeps_ui_frozen():
+    build = (PACKAGING / "build_macos.sh").read_text(encoding="utf-8")
+    assert "--macos-target-arch=arm64" in build
+    assert "--macos-app-macos-min-version=15.0" in build
+    assert "--macos-app-console-mode=force" in build
+    assert "--include-module=keyring.backends.macOS" in build
+    assert "codesign --force --deep --sign -" in build
+    assert "runtime-requirements-macos.lock" in build
+    assert "pywin32" not in (PACKAGING / "runtime-requirements-macos.lock").read_text(encoding="utf-8")
+    assert audit_ui(ROOT, PACKAGING / "ui-hashes.json") == []

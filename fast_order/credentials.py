@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -60,7 +61,7 @@ class CredentialStoreError(RuntimeError):
 
 
 class CredentialStoreUnavailable(CredentialStoreError):
-    """Raised when Windows Credential Manager cannot be used safely."""
+    """Raised when the operating system credential store cannot be used safely."""
 
 
 class CredentialStoreCorrupt(CredentialStoreError):
@@ -112,8 +113,12 @@ def _credential_username(profile_id: str, field: str) -> str:
     return f"{profile_id}:{field}"
 
 
+def _secure_store_name() -> str:
+    return "macOS 登录钥匙串" if sys.platform == "darwin" else "Windows Credential Manager"
+
+
 class CredentialStore:
-    """Persist Webull credentials only in Windows Credential Manager.
+    """Persist Webull credentials only in the native system credential store.
 
     The adjacent JSON profile intentionally contains display-only metadata. There
     is no plaintext fallback: callers may still connect with in-memory values for
@@ -137,21 +142,36 @@ class CredentialStore:
     def _get_backend(self) -> _KeyringBackend:
         if self._backend is not None:
             return self._backend
-        if os.name != "nt":
-            raise CredentialStoreUnavailable("安全凭据保存仅支持 Windows Credential Manager")
-        try:
-            import keyring
+        if sys.platform == "darwin":
+            try:
+                from keyring.backends.macOS import Keyring
 
-            backend = keyring.get_keyring()
-        except Exception as exc:  # pragma: no cover - depends on host installation
-            raise CredentialStoreUnavailable("Windows Credential Manager 当前不可用") from exc
+                # Accessing priority verifies that the Security framework API loaded.
+                _ = Keyring.priority
+                backend = Keyring()
+            except Exception as exc:  # pragma: no cover - depends on the macOS host
+                raise CredentialStoreUnavailable("macOS 登录钥匙串当前不可用") from exc
+            if (
+                backend.__class__.__module__ != "keyring.backends.macOS"
+                or backend.__class__.__name__ != "Keyring"
+            ):
+                raise CredentialStoreUnavailable("未检测到 macOS 登录钥匙串后端")
+        elif os.name == "nt":
+            try:
+                import keyring
 
-        module_name = backend.__class__.__module__.lower()
-        class_name = backend.__class__.__name__.lower()
-        if self._require_windows_backend and not (
-            "keyring.backends.windows" in module_name or "winvault" in class_name
-        ):
-            raise CredentialStoreUnavailable("未检测到 Windows Credential Manager 后端")
+                backend = keyring.get_keyring()
+            except Exception as exc:  # pragma: no cover - depends on host installation
+                raise CredentialStoreUnavailable("Windows Credential Manager 当前不可用") from exc
+
+            module_name = backend.__class__.__module__.lower()
+            class_name = backend.__class__.__name__.lower()
+            if self._require_windows_backend and not (
+                "keyring.backends.windows" in module_name or "winvault" in class_name
+            ):
+                raise CredentialStoreUnavailable("未检测到 Windows Credential Manager 后端")
+        else:
+            raise CredentialStoreUnavailable("当前平台没有受支持的系统安全凭据存储")
         self._backend = backend
         return backend
 
@@ -164,8 +184,15 @@ class CredentialStore:
         return True
 
     def load_profile(self) -> AccountProfile | None:
-        if not self.profile_path.exists():
+        if not self.profile_path.exists() and not self.profile_path.is_symlink():
             return None
+        if sys.platform == "darwin":
+            from .platform_security import validate_macos_path
+
+            try:
+                validate_macos_path(self.profile_path, directory=False)
+            except RuntimeError as exc:
+                raise CredentialStoreCorrupt("账户配置元数据路径不安全") from exc
         try:
             raw = json.loads(self.profile_path.read_text(encoding="utf-8"))
             allowed = {"profile_id", "account_mask", "environment", "auto_connect"}
@@ -206,12 +233,12 @@ class CredentialStore:
                     SERVICE_NAME, _credential_username(profile.profile_id, field)
                 )
                 if not value:
-                    raise CredentialStoreCorrupt("Windows Credential Manager 中的账户凭据不完整")
+                    raise CredentialStoreCorrupt(f"{_secure_store_name()} 中的账户凭据不完整")
                 values[field] = value
         except CredentialStoreCorrupt:
             raise
         except Exception as exc:
-            raise CredentialStoreUnavailable("无法读取 Windows Credential Manager") from exc
+            raise CredentialStoreUnavailable(f"无法读取 {_secure_store_name()}") from exc
         return StoredCredentials(profile=profile, **values)
 
     def save_credentials(
@@ -246,13 +273,13 @@ class CredentialStore:
                 written.append(field)
         except Exception as exc:
             # Do not create plaintext metadata for a credential set that was not
-            # successfully committed to Credential Manager.
+            # successfully committed to the native secure store.
             for field in written:
                 try:
                     backend.delete_password(SERVICE_NAME, _credential_username(profile_id, field))
                 except Exception:
                     pass
-            raise CredentialStoreUnavailable("无法写入 Windows Credential Manager") from exc
+            raise CredentialStoreUnavailable(f"无法写入 {_secure_store_name()}") from exc
 
         try:
             self._write_profile(profile)
@@ -280,7 +307,7 @@ class CredentialStore:
                 if exc.__class__.__name__ != "PasswordDeleteError":
                     failures.append(exc)
         if failures:
-            raise CredentialStoreUnavailable("无法完整删除 Windows Credential Manager 凭据") from failures[0]
+            raise CredentialStoreUnavailable(f"无法完整删除 {_secure_store_name()} 凭据") from failures[0]
         try:
             self.profile_path.unlink(missing_ok=True)
         except OSError as exc:
@@ -293,10 +320,15 @@ class CredentialStore:
         try:
             temp_path.write_text(payload, encoding="utf-8")
             os.replace(temp_path, self.profile_path)
-            if self._protect_metadata_acl and (
-                not harden_windows_acl(self.profile_path.parent)
-                or not harden_windows_acl(self.profile_path)
-            ):
+            if self._protect_metadata_acl:
+                from .platform_security import protect_runtime_path
+
+                protected = protect_runtime_path(self.profile_path.parent) and protect_runtime_path(
+                    self.profile_path
+                )
+            else:
+                protected = True
+            if not protected:
                 self.profile_path.unlink(missing_ok=True)
                 raise CredentialStoreError("账户元数据权限保护失败")
         except OSError as exc:

@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-fastorder.sh:ro
+    secrets:
+      - {source: postgres_admin_password, mode: 0400}
+      - {source: fastorder_db_password, mode: 0400}
+      - {source: casdoor_db_password, mode: 0400}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  casdoor:
+    image: ${CASDOOR_IMAGE:?Set CASDOOR_IMAGE to a reviewed immutable tag or digest}
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+    entrypoint: ["/bin/sh", "/bootstrap/casdoor-entrypoint.sh"]
+    volumes:
+      - ./casdoor-entrypoint.sh:/bootstrap/casdoor-entrypoint.sh:ro
+      - casdoor-conf:/conf
+    secrets:
+      - {source: casdoor_db_password, mode: 0400}
+    environment:
+      CASDOOR_ORIGIN: https://${AUTH_DOMAIN}
+      RUNNING_IN_DOCKER: "true"
+    expose: ["8000"]
+    networks: [backend]
+
+  fastorder:
+    build:
+      context: ../..
+      dockerfile: deploy/server/Dockerfile
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    depends_on:
+      postgres: {condition: service_healthy}
+      casdoor: {condition: service_started}
+    environment:
+      FASTORDER_LIVE_ALLOWED: "true"
+      FASTORDER_PORT: "8080"
+      FASTORDER_TOKEN_DIR: /var/lib/fastorder/webull_tokens
+      FASTORDER_WEBULL_APP_KEY_FILE: /run/fastorder-secrets/webull_app_key
+      FASTORDER_WEBULL_APP_SECRET_FILE: /run/fastorder-secrets/webull_app_secret
+      FASTORDER_DATABASE_DSN_FILE: /run/fastorder-secrets/database_dsn
+      FASTORDER_ACCOUNT_KEY_FILE: /run/fastorder-secrets/account_key
+      FASTORDER_CASDOOR_CLIENT_SECRET_FILE: /run/fastorder-secrets/casdoor_client_secret
+      FASTORDER_CASDOOR_URL: http://casdoor:8000
+      FASTORDER_CASDOOR_ISSUER: https://${AUTH_DOMAIN}
+      FASTORDER_CASDOOR_JWKS_URL: http://casdoor:8000/api/certs
+      FASTORDER_CASDOOR_CLIENT_ID: ${CASDOOR_CLIENT_ID}
+      FASTORDER_CASDOOR_ORGANIZATION: ${CASDOOR_ORGANIZATION}
+      FASTORDER_CASDOOR_APPLICATION: ${CASDOOR_APPLICATION}
+      FASTORDER_CASDOOR_AUTHORIZATION_ENDPOINT: https://${AUTH_DOMAIN}/login/oauth/authorize
+      FASTORDER_CASDOOR_TOKEN_ENDPOINT: https://${AUTH_DOMAIN}/api/login/oauth/access_token
+      FASTORDER_ADMIN_REDIRECT_URI: https://${ADMIN_DOMAIN}/admin/
+      FASTORDER_MAX_ORDER_QTY: ${FASTORDER_MAX_ORDER_QTY}
+      FASTORDER_MAX_ORDER_VALUE: ${FASTORDER_MAX_ORDER_VALUE}
+      FASTORDER_MAX_MARKET_QTY: ${FASTORDER_MAX_MARKET_QTY}
+      FASTORDER_MAX_MARKET_ESTIMATED_VALUE: ${FASTORDER_MAX_MARKET_ESTIMATED_VALUE}
+      FASTORDER_MAX_DAILY_GROSS_NOTIONAL: ${FASTORDER_MAX_DAILY_GROSS_NOTIONAL}
+      FASTORDER_MAX_OPEN_ORDERS: ${FASTORDER_MAX_OPEN_ORDERS}
+      FASTORDER_QUOTE_STALE_SECONDS: ${FASTORDER_QUOTE_STALE_SECONDS:-8}
+    volumes:
+      - fastorder-token-data:/var/lib/fastorder/webull_tokens
+      - ./secrets/fastorder:/run/fastorder-secrets:ro
+    expose: ["8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/livez',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    networks: [backend]
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2.10.0-alpine}
+    restart: unless-stopped
+    depends_on:
+      casdoor: {condition: service_started}
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      AUTH_DOMAIN: ${AUTH_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [backend]
+
+secrets:
+  postgres_admin_password: {file: ./secrets/postgres_admin_password}
+  fastorder_db_password: {file: ./secrets/fastorder_db_password}
+  casdoor_db_password: {file: ./secrets/casdoor_db_password}
+
+volumes:
+  postgres-data:
+  casdoor-conf:
+  fastorder-token-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  backend:
+    internal: false

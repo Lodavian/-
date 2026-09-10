@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -58,6 +59,10 @@ class AppPaths:
                 # keeps existing Settings(project_root=tmp_path) fixtures
                 # isolated while the real source entry point uses LOCALAPPDATA.
                 data = resource
+            elif sys.platform == "darwin":
+                data = Path.home() / "Library" / "Application Support" / "FastOrder"
+                # Do not call resolve() here: it would hide a symlinked data root.
+                data = Path(os.path.abspath(os.fspath(data.expanduser())))
             else:
                 local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
                 if not local_app_data:
@@ -108,6 +113,9 @@ class AppPaths:
         return self.resource_root / ".env"
 
     def ensure_directories(self) -> None:
+        from .platform_security import ensure_macos_directory, protect_runtime_path
+
+        ensure_macos_directory(self.data_root)
         for path, label in (
             (self.runtime_root, "运行目录"),
             (self.broker_tokens, "SDK令牌目录"),
@@ -118,12 +126,8 @@ class AppPaths:
             path.mkdir(parents=True, exist_ok=True)
             if path.is_symlink() or not path.is_dir():
                 raise PathMigrationError(f"{label}创建失败，已停止启动")
-        try:
-            from .credentials import harden_windows_acl
-        except ImportError as exc:
-            raise PathMigrationError("运行目录权限保护不可用，已停止启动") from exc
         for path in (self.runtime_root, self.broker_tokens, self.logs):
-            if not harden_windows_acl(path):
+            if not protect_runtime_path(path):
                 raise PathMigrationError(f"运行目录权限保护失败: {path.name}")
 
     def migrate_legacy(self, legacy_root: Path | None = None) -> dict[str, Any]:
@@ -291,9 +295,9 @@ class AppPaths:
         try:
             temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             os.replace(temp, destination)
-            from .credentials import harden_windows_acl
+            from .platform_security import protect_runtime_path
 
-            if not harden_windows_acl(destination.parent) or not harden_windows_acl(destination):
+            if not protect_runtime_path(destination.parent) or not protect_runtime_path(destination):
                 raise PathMigrationError("账户配置权限保护失败")
         except OSError as exc:
             raise PathMigrationError("账户配置元数据迁移失败") from exc
@@ -320,9 +324,9 @@ class AppPaths:
         destination.parent.mkdir(parents=True, exist_ok=True)
         staging: Path | None = Path(tempfile.mkdtemp(prefix="fast-order-token-migration-", dir=str(destination.parent)))
         try:
-            from .credentials import harden_windows_acl
+            from .platform_security import protect_runtime_path
 
-            if not harden_windows_acl(staging):
+            if not protect_runtime_path(staging):
                 raise PathMigrationError("SDK令牌暂存目录权限保护失败")
             for path in files:
                 relative = path.relative_to(source)
@@ -347,7 +351,7 @@ class AppPaths:
             if staging is not None and staging.exists():
                 shutil.rmtree(staging, ignore_errors=True)
         try:
-            if not harden_windows_acl(destination):
+            if not protect_runtime_path(destination, recursive=True):
                 raise PathMigrationError("SDK令牌目录权限保护失败")
         except ImportError as exc:
             raise PathMigrationError("SDK令牌目录权限保护不可用，已停止启动") from exc
@@ -371,9 +375,9 @@ class AppPaths:
                 if sanitized is None:
                     continue
                 target.write_text(sanitized, encoding="utf-8")
-            from .credentials import harden_windows_acl
+            from .platform_security import protect_runtime_path
 
-            if not harden_windows_acl(destination) or not harden_windows_acl(import_dir):
+            if not protect_runtime_path(destination, recursive=True) or not protect_runtime_path(import_dir, recursive=True):
                 raise PathMigrationError("应用日志目录权限保护失败")
         except (OSError, ValueError) as exc:
             raise PathMigrationError("应用日志迁移失败") from exc

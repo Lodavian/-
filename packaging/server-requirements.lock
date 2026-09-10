@@ -1,0 +1,6 @@
+aiohttp==3.14.3
+asyncpg==0.30.0
+cryptography==46.0.3
+PyJWT[crypto]==2.10.1
+tzdata==2026.3
+webull-openapi-python-sdk==2.0.18

@@ -8,6 +8,7 @@ import pytest
 
 from fast_order.config import load_production_settings, load_settings
 from fast_order.paths import AppPaths, PathMigrationError, PathResolutionError
+from fast_order import paths as paths_module
 
 
 def _legacy_profile(path: Path) -> None:
@@ -39,6 +40,20 @@ def test_production_path_resolution_requires_localappdata(monkeypatch: pytest.Mo
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     with pytest.raises(PathResolutionError):
         AppPaths.resolve(Path(__file__).parents[1], development=False)
+
+
+def test_macos_production_paths_use_application_support_without_env_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setattr(paths_module.sys, "platform", "darwin")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setenv("FAST_ORDER_DATA_DIR", str(tmp_path / "forbidden-override"))
+
+    resolved = AppPaths.resolve(tmp_path / "FastOrder.app" / "Contents" / "Resources", production=True)
+
+    assert resolved.data_root == home / "Library" / "Application Support" / "FastOrder"
+    assert not resolved.data_root.is_relative_to(resolved.resource_root)
 
 
 def test_production_manifest_is_strict_and_env_independent(

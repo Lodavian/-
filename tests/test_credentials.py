@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-
 import pytest
 
 from fast_order.credentials import (
@@ -12,6 +11,7 @@ from fast_order.credentials import (
     mask_account_id,
     resolve_credentials,
 )
+from fast_order import credentials as credentials_module
 
 
 class FakeKeyring:
@@ -135,6 +135,22 @@ def test_unavailable_keyring_never_writes_plaintext_metadata(tmp_path) -> None:
         )
     assert not store.profile_path.exists()
     assert list(tmp_path.rglob("*secret*")) == []
+
+
+def test_macos_forces_native_keyring_backend(monkeypatch, tmp_path) -> None:
+    import keyring.backends.macOS as macos_backend
+
+    NativeKeyring = type(
+        "Keyring",
+        (FakeKeyring,),
+        {"__module__": "keyring.backends.macOS", "priority": 5},
+    )
+    monkeypatch.setattr(credentials_module.sys, "platform", "darwin")
+    monkeypatch.setattr(macos_backend, "Keyring", NativeKeyring)
+    store = CredentialStore(tmp_path)
+
+    assert store.available is True
+    assert store._get_backend().__class__.__module__ == "keyring.backends.macOS"
 
 
 def test_delete_removes_keyring_values_before_metadata(tmp_path) -> None:
